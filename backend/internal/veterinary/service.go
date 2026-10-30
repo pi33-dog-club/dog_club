@@ -35,7 +35,7 @@ func validText(s string, max int) bool {
 func parseDate(s string) (time.Time, error) {
 	d, err := time.Parse(time.DateOnly, s)
 	if err != nil || d.Year() < 1 {
-		return time.Time{}, invalid("date", "Укажите дату YYYY-MM-DD.")
+		return time.Time{}, invalid("date", "Укажите существующую дату.")
 	}
 	return d, nil
 }
@@ -44,11 +44,15 @@ func clinicalDate(date, birth string, now time.Time) error {
 		return err
 	}
 	if date < birth || date > now.UTC().Format(time.DateOnly) {
-		return invalid("date", "Дата должна быть не раньше рождения и не позднее текущей даты UTC.")
+		return invalid("date", "Дата должна быть не раньше рождения собаки и не позже сегодняшней.")
 	}
 	return nil
 }
-func validPeriod(p Period) bool { return p.Value > 0 && (p.Unit == "days" || p.Unit == "months") }
+
+// validPeriod caps a vaccine period at 100 years: 36500 days or 1200 months.
+func validPeriod(p Period) bool {
+	return p.Value > 0 && (p.Unit == "days" && p.Value <= 36500 || p.Unit == "months" && p.Value <= 1200)
+}
 func addPeriod(date string, p Period) (string, error) {
 	d, err := parseDate(date)
 	if err != nil {
@@ -80,7 +84,7 @@ func addPeriod(date string, p Period) (string, error) {
 func correction(version int64, reason *string) error {
 	*reason = strings.TrimSpace(*reason)
 	if version < 1 {
-		return invalid("version", "Укажите текущую версию записи.")
+		return invalid("version", "Обновите страницу и повторите действие.")
 	}
 	if *reason == "" || !validText(*reason, 500) {
 		return invalid("reason", "Укажите причину исправления длиной до 500 символов.")
@@ -163,7 +167,7 @@ func noActiveVaccination(ctx context.Context, q *repository, dogID, id int32, ty
 }
 func validPage(f PageFilter, serial bool) error {
 	if f.After < 0 || f.Limit < 1 || f.Limit > 100 || (serial && f.After > 2147483647) {
-		return invalid("query", "Проверьте параметры страницы: limit от 1 до 100, after — неотрицательный ID.")
+		return invalid("query", "Не удалось загрузить список. Обновите страницу.")
 	}
 	return nil
 }
@@ -213,15 +217,22 @@ func (s *Service) GetVaccineType(ctx context.Context, p auth.Principal, id int32
 func validateVaccineType(in *VaccineTypeInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Maker = strings.TrimSpace(in.Maker)
-	if in.Name == "" || !validText(in.Name, 100) || !validText(in.Maker, 100) {
-		return invalid("name", "Укажите название препарата и производителя длиной до 100 символов.")
+	var fields []FieldError
+	if in.Name == "" || !validText(in.Name, 100) {
+		fields = append(fields, FieldError{"name", "Укажите название препарата, не больше 100 символов."})
+	}
+	if !validText(in.Maker, 100) {
+		fields = append(fields, FieldError{"maker", "Производитель — не больше 100 символов."})
+	}
+	if len(fields) > 0 {
+		return &ValidationError{fields}
 	}
 	for _, v := range []struct {
 		name string
 		p    Period
 	}{{"validity", in.Validity}, {"revaccination", in.Revaccination}} {
 		if !validPeriod(v.p) {
-			return invalid(v.name, "Укажите положительный период и единицу days или months.")
+			return invalid(v.name, "Укажите целое число: от 1 до 36 500 дней или от 1 до 1200 месяцев.")
 		}
 		if _, err := addPeriod("2000-01-01", v.p); err != nil {
 			return invalid(v.name, "Период выходит за поддерживаемый диапазон дат.")
@@ -305,7 +316,7 @@ func validateExamination(in *ExaminationInput, birth string, now time.Time) erro
 	}{{"description", &in.Description}, {"result", &in.Result}, {"recommendations", &in.Recommendations}} {
 		*v.value = strings.TrimSpace(*v.value)
 		if !validText(*v.value, 4000) {
-			return invalid(v.name, "Допускается до 4000 символов без управляющих знаков.")
+			return invalid(v.name, "Не больше 4000 символов.")
 		}
 	}
 	if len(in.Diagnoses) > 100 {
@@ -484,7 +495,7 @@ func (s *Service) GetVaccination(ctx context.Context, p auth.Principal, dogID, i
 func validateClearance(in *ClearanceInput) error {
 	in.Comment = strings.TrimSpace(in.Comment)
 	if !validText(in.Comment, 4000) {
-		return invalid("comment", "Допускается до 4000 символов без управляющих знаков.")
+		return invalid("comment", "Комментарий — не больше 4000 символов.")
 	}
 	if in.ExaminationID < 1 {
 		return invalid("examination_id", "Выберите осмотр этой собаки.")
@@ -498,7 +509,7 @@ func validateClearance(in *ClearanceInput) error {
 			return invalid("valid_until", "Укажите срок разрешения.")
 		}
 		if _, err := parseDate(*in.ValidUntil); err != nil {
-			return invalid("valid_until", "Укажите дату YYYY-MM-DD.")
+			return invalid("valid_until", "Укажите существующую дату.")
 		}
 		if len(in.VaccinationIDs) == 0 || len(in.VaccinationIDs) > 100 {
 			return invalid("vaccination_ids", "Укажите от одной до 100 необходимых записей вакцинации.")
@@ -513,7 +524,7 @@ func validateClearance(in *ClearanceInput) error {
 	seen := map[int32]bool{}
 	for _, id := range in.VaccinationIDs {
 		if id < 1 || seen[id] {
-			return invalid("vaccination_ids", "Укажите положительные ID без повторений.")
+			return invalid("vaccination_ids", "Выберите прививки из списка, без повторов.")
 		}
 		seen[id] = true
 	}
@@ -629,7 +640,7 @@ func (s *Service) Void(ctx context.Context, p auth.Principal, dogID int32, entit
 			}
 		}
 		if id < 1 || (entity != "clearance" && id > 2147483647) {
-			return nil, invalid("id", "Укажите положительный ID записи.")
+			return nil, invalid("id", "Запись не найдена. Откройте её из списка.")
 		}
 		before, a, version, void, err := load()
 		if err != nil {

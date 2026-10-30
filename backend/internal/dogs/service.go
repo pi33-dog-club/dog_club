@@ -3,6 +3,7 @@ package dogs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"time"
@@ -102,13 +103,13 @@ func validateCreate(in *CreateInput, now time.Time) error {
 	in.Identifier.Number = strings.TrimSpace(in.Identifier.Number)
 	fields := make([]FieldError, 0)
 	if in.Nickname == "" || !validText(in.Nickname, 100) {
-		fields = append(fields, FieldError{"nickname", "Укажите кличку длиной до 100 символов."})
+		fields = append(fields, FieldError{"nickname", "Укажите кличку, не больше 100 символов."})
 	}
 	if !dateValid(in.DateOfBirth, now) || in.DateOfBirth < "1900-01-01" {
-		fields = append(fields, FieldError{"date_of_birth", "Укажите дату рождения от 1900-01-01 до текущей даты UTC в формате YYYY-MM-DD."})
+		fields = append(fields, FieldError{"date_of_birth", "Укажите дату рождения с 01.01.1900 по сегодня."})
 	}
 	if in.Identifier.Number == "" || !validText(in.Identifier.Number, 100) {
-		fields = append(fields, FieldError{"identifier.number", "Укажите непустой номер идентификатора длиной до 100 символов."})
+		fields = append(fields, FieldError{"identifier.number", "Укажите номер, не больше 100 символов."})
 	}
 	if in.Identifier.Date != nil && (!dateValid(*in.Identifier.Date, now) || *in.Identifier.Date < in.DateOfBirth) {
 		fields = append(fields, FieldError{"identifier.date", "Дата идентификации должна быть не раньше рождения и не в будущем."})
@@ -293,7 +294,7 @@ func mergeRequired[T any](f Field[T], target *T, name string, fields *[]FieldErr
 		return
 	}
 	if f.Value == nil {
-		*fields = append(*fields, FieldError{name, "Поле не может быть null."})
+		*fields = append(*fields, FieldError{name, "Заполните поле."})
 		return
 	}
 	*target = *f.Value
@@ -377,22 +378,39 @@ func normalizeParent(p *ParentInput, field string) error {
 		return nil
 	}
 	if p.External == nil {
-		return invalid(field, "Укажите внешние сведения либо null для неизвестного родителя.")
+		return invalid(field, "Выберите собаку из базы или укажите кличку и номер родословной.")
 	}
 	e := p.External
 	e.Nickname = strings.TrimSpace(e.Nickname)
 	e.PedigreeNumber = strings.TrimSpace(e.PedigreeNumber)
 	e.Issuer = strings.TrimSpace(e.Issuer)
-	if (e.Nickname == "" && e.PedigreeNumber == "") || !validText(e.Nickname, 100) || !validText(e.PedigreeNumber, 100) || !validText(e.Issuer, 150) {
-		return invalid(field, "Укажите кличку и/или номер родословной; пределы 100 символов, организация — 150.")
+	if e.Nickname == "" && e.PedigreeNumber == "" {
+		return invalid(field, "Укажите кличку или номер родословной.")
+	}
+	if !validText(e.Nickname, 100) || !validText(e.PedigreeNumber, 100) || !validText(e.Issuer, 150) {
+		return invalid(field, "Кличка и номер — не больше 100 символов, организация — не больше 150.")
 	}
 	return nil
 }
 func (s *Service) SetPedigree(ctx context.Context, p auth.Principal, id int32, in PedigreeInput) (Dog, error) {
 	in.Number = strings.TrimSpace(in.Number)
 	in.Issuer = strings.TrimSpace(in.Issuer)
-	if !validText(in.Number, 100) || !validText(in.Issuer, 150) {
-		return Dog{}, invalid("pedigree", "Проверьте номер родословной и организацию.")
+	var fields []FieldError
+	if !validText(in.Number, 100) {
+		fields = append(fields, FieldError{"number", "Номер родословной — не больше 100 символов."})
+	}
+	if !validText(in.Issuer, 150) {
+		fields = append(fields, FieldError{"issuer", "Организация — не больше 150 символов."})
+	}
+	if len(fields) == 0 && (in.Number == "") != (in.Issuer == "") {
+		if in.Number == "" {
+			fields = append(fields, FieldError{"number", "Укажите номер родословной или очистите организацию."})
+		} else {
+			fields = append(fields, FieldError{"issuer", "Укажите организацию, выдавшую родословную."})
+		}
+	}
+	if len(fields) > 0 {
+		return Dog{}, &ValidationError{fields}
 	}
 	if err := normalizeParent(in.Mother, "mother"); err != nil {
 		return Dog{}, err
@@ -401,20 +419,23 @@ func (s *Service) SetPedigree(ctx context.Context, p auth.Principal, id int32, i
 		return Dog{}, err
 	}
 	return s.mutate(ctx, p, id, in.Version, "pedigree_updated", "", func(ctx context.Context, q *repository, _ Dog) error {
-		for _, parent := range []*ParentInput{in.Mother, in.Father} {
-			if parent != nil && parent.DogID != nil {
-				if *parent.DogID == id {
-					return invalid("parents", "Собака не может быть собственным родителем.")
+		for _, parent := range []struct {
+			field string
+			input *ParentInput
+		}{{"mother", in.Mother}, {"father", in.Father}} {
+			if parent.input != nil && parent.input.DogID != nil {
+				if *parent.input.DogID == id {
+					return invalid(parent.field, "Собака не может быть собственным родителем.")
 				}
-				if _, err := q.relative(ctx, *parent.DogID); errors.Is(err, ErrNotFound) {
-					return invalid("parents", "Карточка родителя не найдена.")
+				if _, err := q.relative(ctx, *parent.input.DogID); errors.Is(err, ErrNotFound) {
+					return invalid(parent.field, "Карточка не найдена. Выберите собаку заново.")
 				} else if err != nil {
 					return err
 				}
 			}
 		}
 		if in.Mother != nil && in.Father != nil && in.Mother.DogID != nil && in.Father.DogID != nil && *in.Mother.DogID == *in.Father.DogID {
-			return invalid("parents", "Мать и отец должны быть разными собаками.")
+			return invalid("father", "Мать и отец должны быть разными собаками.")
 		}
 		if err := q.savePedigree(ctx, id, in); err != nil {
 			return err
@@ -431,15 +452,18 @@ func (s *Service) validateRelations(ctx context.Context, q *repository, id int32
 		return err
 	}
 	for _, entry := range []struct {
-		field, sex string
-		parent     *Parent
-	}{{"mother", "Сука", d.Pedigree.Mother}, {"father", "Кобель", d.Pedigree.Father}} {
+		field, sex, rule, born string
+		parent                 *Parent
+	}{{"mother", "Сука", "Мать должна быть сукой", "родилась", d.Pedigree.Mother}, {"father", "Кобель", "Отец должен быть кобелем", "родился", d.Pedigree.Father}} {
 		if entry.parent == nil || entry.parent.Dog == nil {
 			continue
 		}
 		r := entry.parent.Dog
-		if r.Sex.Name != entry.sex || r.DateOfBirth >= d.DateOfBirth {
-			return invalid(entry.field, "Проверьте пол и дату рождения родителя; родитель должен быть старше потомка.")
+		if r.Sex.Name != entry.sex {
+			return invalid(entry.field, entry.rule+": выберите другую собаку.")
+		}
+		if r.DateOfBirth >= d.DateOfBirth {
+			return invalid(entry.field, fmt.Sprintf("%s — %s %s, не раньше этой собаки (%s). Родитель должен быть старше.", r.Nickname, entry.born, ruDate(r.DateOfBirth), ruDate(d.DateOfBirth)))
 		}
 	}
 	for _, title := range d.Titles {
@@ -451,7 +475,7 @@ func (s *Service) validateRelations(ctx context.Context, q *repository, id int32
 }
 func validateTitle(date *string, birth, basis string, now time.Time) error {
 	if !validText(basis, 1000) {
-		return invalid("basis", "Основание должно содержать до 1000 символов без управляющих знаков.")
+		return invalid("basis", "Основание — не больше 1000 символов.")
 	}
 	if date != nil && (!dateValid(*date, now) || *date < birth) {
 		return invalid("awarded_on", "Дата присвоения должна быть не раньше рождения и не в будущем.")
@@ -531,3 +555,11 @@ func (s *Service) Dictionaries(ctx context.Context, p auth.Principal) (Dictionar
 }
 
 func (s *Service) SetNotificationSink(sink notify.Sink) { s.notifications = sink }
+
+// ruDate shows a YYYY-MM-DD date the way people read it: DD.MM.YYYY.
+func ruDate(date string) string {
+	if len(date) != 10 {
+		return date
+	}
+	return date[8:10] + "." + date[5:7] + "." + date[0:4]
+}

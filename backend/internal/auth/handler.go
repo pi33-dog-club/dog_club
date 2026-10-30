@@ -382,9 +382,18 @@ func writeAuthError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, ErrLastAdmin):
 		status, code, detail = 409, "last_admin", "Нельзя отключить последнего действующего администратора."
 	case errors.Is(err, ErrInvalidInput):
-		status, code, detail = 422, "validation_failed", "Проверьте поля. Логин: 3–64 символа a–z, 0–9, точка, дефис или подчёркивание; пароль: от 15 символов до 1024 байт."
+		var input *InputError
+		if errors.As(err, &input) {
+			fields := make([]httpapi.FieldError, 0, len(input.Fields))
+			for _, f := range input.Fields {
+				fields = append(fields, httpapi.FieldError{Field: f.Field, Code: "invalid", Message: f.Message})
+			}
+			httpapi.WriteProblem(w, r, httpapi.ValidationProblem(fields...))
+			return
+		}
+		status, code, detail = 422, "validation_failed", "Проверьте введённые данные."
 	case errors.Is(err, ErrMail):
-		status, code, detail = 503, "mail_unavailable", "Письмо не удалось отправить. Администратор может повторить отправку приглашения по адресу из заголовка Location."
+		status, code, detail = 503, "mail_unavailable", "Письмо не удалось отправить. Повторите отправку приглашения позже из карточки пользователя."
 	case errors.Is(err, ErrBusy):
 		status, code, detail = 429, "rate_limited", "Слишком много попыток. Повторите позже."
 		if w.Header().Get("Retry-After") == "" {

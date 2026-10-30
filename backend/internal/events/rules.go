@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 	_ "time/tzdata"
@@ -17,10 +19,10 @@ func textOK(v string, max int) bool {
 func correction(in *Correction) error {
 	in.Reason = strings.TrimSpace(in.Reason)
 	if in.Version < 1 {
-		return invalid("version", "Укажите текущую версию записи.")
+		return invalid("version", "Обновите страницу и повторите действие.")
 	}
 	if in.Reason == "" || !textOK(in.Reason, 500) {
-		return invalid("reason", "Укажите причину до 500 символов без управляющих знаков.")
+		return invalid("reason", "Укажите причину, не больше 500 символов.")
 	}
 	return nil
 }
@@ -29,102 +31,155 @@ func validPeriod(start, end time.Time) bool {
 }
 func location(name string) (*time.Location, error) {
 	if name == "" || name == "Local" || !textOK(name, 100) {
-		return nil, invalid("timezone", "Укажите явный часовой пояс IANA или UTC.")
+		return nil, invalid("timezone", "Выберите часовой пояс из списка.")
 	}
 	loc, err := time.LoadLocation(name)
 	if err != nil {
-		return nil, invalid("timezone", "Неизвестный часовой пояс.")
+		return nil, invalid("timezone", "Такого часового пояса нет. Выберите его из списка.")
 	}
 	return loc, nil
 }
+
+// fail returns the collected field errors, or nil when there are none.
+func fail(fields []FieldError) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	return &ValidationError{fields}
+}
+
+// tooLong names the limit so the person knows how much to shorten.
+func tooLong(field string, max int) FieldError {
+	return FieldError{field, fmt.Sprintf("Не больше %d символов, без служебных символов вроде табуляции.", max)}
+}
+
 func validateVenue(in *VenueInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Locality = strings.TrimSpace(in.Locality)
 	in.Street = strings.TrimSpace(in.Street)
 	in.BuildingNumber = strings.TrimSpace(in.BuildingNumber)
 	in.Room = strings.TrimSpace(in.Room)
-	if in.Name == "" || in.Locality == "" {
-		return invalid("venue", "Укажите название площадки и населённый пункт.")
+	var fields []FieldError
+	if in.Name == "" {
+		fields = append(fields, FieldError{"name", "Укажите название площадки."})
+	}
+	if in.Locality == "" {
+		fields = append(fields, FieldError{"locality", "Укажите населённый пункт."})
 	}
 	for _, v := range []struct {
 		field, value string
 		max          int
 	}{{"name", in.Name, 150}, {"locality", in.Locality, 100}, {"street", in.Street, 100}, {"building_number", in.BuildingNumber, 20}, {"room", in.Room, 20}} {
 		if !textOK(v.value, v.max) {
-			return invalid(v.field, "Поле слишком длинное или содержит управляющие знаки.")
+			fields = append(fields, tooLong(v.field, v.max))
 		}
 	}
-	return nil
+	return fail(fields)
 }
 func validateEvent(in *EventInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Description = strings.TrimSpace(in.Description)
 	in.Timezone = strings.TrimSpace(in.Timezone)
-	if in.Name == "" || !textOK(in.Name, 100) || !textOK(in.Description, 4000) {
-		return invalid("event", "Название — до 100 символов, описание — до 4000, без управляющих знаков.")
+	var fields []FieldError
+	if in.Name == "" {
+		fields = append(fields, FieldError{"name", "Укажите название мероприятия."})
+	} else if !textOK(in.Name, 100) {
+		fields = append(fields, tooLong("name", 100))
 	}
-	if in.TypeID < 1 || in.VenueID < 1 {
-		return invalid("references", "Выберите тип мероприятия и площадку.")
+	if !textOK(in.Description, 4000) {
+		fields = append(fields, tooLong("description", 4000))
 	}
-	if !validPeriod(in.StartsAt, in.EndsAt) {
-		return invalid("period", "Укажите корректные начало и окончание с часовым поясом.")
+	if in.TypeID < 1 {
+		fields = append(fields, FieldError{"type_id", "Выберите тип мероприятия."})
 	}
-	if loc, err := location(in.Timezone); err != nil {
-		return err
-	} else if in.StartsAt.In(loc).Year() < 1 || in.EndsAt.In(loc).Year() > 9999 {
-		return invalid("period", "Локальная дата выходит за поддерживаемый диапазон.")
+	if in.VenueID < 1 {
+		fields = append(fields, FieldError{"venue_id", "Выберите площадку."})
 	}
 	if in.Audience != "dogs" && in.Audience != "people" && in.Audience != "mixed" {
-		return invalid("audience", "Выберите аудиторию: собаки, люди или собаки и люди.")
+		fields = append(fields, FieldError{"audience", "Выберите, кто участвует: собаки, люди или собаки и люди."})
+	} else if in.Audience == "people" && in.UsesClasses {
+		fields = append(fields, FieldError{"uses_classes", "Классы собак не применяются, если участвуют только люди. Снимите отметку."})
 	}
-	if in.Audience == "people" && in.UsesClasses {
-		return invalid("uses_classes", "Классы собак не применяются к участию людей без собак.")
+	if in.StartsAt.IsZero() || in.StartsAt.Year() < 1 {
+		fields = append(fields, FieldError{"starts_at", "Укажите дату и время начала."})
 	}
-	return nil
+	if in.EndsAt.IsZero() || in.EndsAt.Year() > 9999 {
+		fields = append(fields, FieldError{"ends_at", "Укажите дату и время окончания."})
+	} else if !in.StartsAt.IsZero() && in.EndsAt.Before(in.StartsAt) {
+		fields = append(fields, FieldError{"ends_at", "Окончание не может быть раньше начала."})
+	}
+	if loc, err := location(in.Timezone); err != nil {
+		var v *ValidationError
+		if errors.As(err, &v) {
+			fields = append(fields, v.Fields...)
+		}
+	} else if validPeriod(in.StartsAt, in.EndsAt) && (in.StartsAt.In(loc).Year() < 1 || in.EndsAt.In(loc).Year() > 9999) {
+		fields = append(fields, FieldError{"starts_at", "Проверьте год: даты должны быть в пределах 1–9999 года."})
+	}
+	return fail(fields)
 }
 func validateClass(in *ClassInput) error {
 	in.Name = strings.TrimSpace(in.Name)
 	in.Requirements = strings.TrimSpace(in.Requirements)
-	if in.Name == "" || !textOK(in.Name, 100) || !textOK(in.Requirements, 2000) {
-		return invalid("class", "Укажите название до 100 и требования до 2000 символов.")
+	var fields []FieldError
+	if in.Name == "" {
+		fields = append(fields, FieldError{"name", "Укажите название класса."})
+	} else if !textOK(in.Name, 100) {
+		fields = append(fields, tooLong("name", 100))
 	}
-	for _, v := range []*int32{in.MinAgeMonths, in.MaxAgeMonths} {
-		if v != nil && (*v < 0 || *v > 1200) {
-			return invalid("age", "Граница возраста — от 0 до 1200 месяцев.")
+	if !textOK(in.Requirements, 2000) {
+		fields = append(fields, tooLong("requirements", 2000))
+	}
+	for _, v := range []struct {
+		field string
+		value *int32
+	}{{"min_age_months", in.MinAgeMonths}, {"max_age_months", in.MaxAgeMonths}} {
+		if v.value != nil && (*v.value < 0 || *v.value > 1200) {
+			fields = append(fields, FieldError{v.field, "Укажите целое число месяцев от 0 до 1200."})
 		}
 	}
 	if in.MinAgeMonths != nil && in.MaxAgeMonths != nil && *in.MinAgeMonths > *in.MaxAgeMonths {
-		return invalid("age", "Минимальный возраст не может превышать максимальный.")
+		fields = append(fields, FieldError{"max_age_months", "Верхняя граница возраста не может быть меньше нижней."})
 	}
 	if in.Requirements != "" && !in.RequiresExpert {
-		return invalid("requires_expert", "Для текстовых требований нужно подтверждение эксперта.")
+		fields = append(fields, FieldError{"requires_expert", "Если заданы требования, включите решение эксперта по квалификации."})
 	}
-	return nil
+	return fail(fields)
 }
 func validateRegistration(in RegistrationInput) error {
 	if in.MemberID < 1 {
-		return invalid("member_id", "Выберите существующую карточку участника.")
+		return invalid("member_id", "Выберите участника.")
 	}
 	if in.DogID != nil && *in.DogID < 1 {
-		return invalid("dog_id", "Укажите положительный ID собаки или null.")
+		return invalid("dog_id", "Выберите собаку из списка.")
 	}
-	if in.ClassID != nil && *in.ClassID < 1 || in.ScheduleID != nil && *in.ScheduleID < 1 {
-		return invalid("references", "Укажите положительные ID класса и расписания или null.")
+	if in.ClassID != nil && *in.ClassID < 1 {
+		return invalid("class_id", "Выберите класс из списка.")
+	}
+	if in.ScheduleID != nil && *in.ScheduleID < 1 {
+		return invalid("schedule_id", "Выберите время выступления из списка.")
 	}
 	if in.DogID == nil && in.ClassID != nil {
-		return invalid("class_id", "Класс собаки не назначается человеку без собаки.")
+		return invalid("class_id", "Класс выбирают только для участия с собакой.")
 	}
 	return nil
 }
 func validateResult(in *ResultInput) error {
 	in.Comment = strings.TrimSpace(in.Comment)
-	if in.GradeID != nil && *in.GradeID < 1 || in.Place != nil && *in.Place < 1 || !textOK(in.Comment, 2000) {
-		return invalid("result", "Проверьте оценку, положительное место и комментарий до 2000 символов.")
+	var fields []FieldError
+	if in.GradeID != nil && *in.GradeID < 1 {
+		fields = append(fields, FieldError{"grade_id", "Выберите оценку из списка."})
 	}
-	if in.GradeID == nil && in.Place == nil && in.Comment == "" {
-		return invalid("result", "Укажите оценку, место или комментарий эксперта.")
+	if in.Place != nil && *in.Place < 1 {
+		fields = append(fields, FieldError{"place", "Место — целое число от 1."})
 	}
-	return nil
+	if !textOK(in.Comment, 2000) {
+		fields = append(fields, tooLong("comment", 2000))
+	}
+	if len(fields) == 0 && in.GradeID == nil && in.Place == nil && in.Comment == "" {
+		fields = append(fields, FieldError{"grade_id", "Укажите оценку, место или комментарий эксперта."})
+	}
+	return fail(fields)
 }
 func classByID(e Event, id *int64) *Class {
 	if id != nil {
@@ -233,7 +288,7 @@ func editable(e Event) error {
 }
 func version(got, want int64) error {
 	if want < 1 {
-		return invalid("version", "Укажите текущую версию записи.")
+		return invalid("version", "Обновите страницу и повторите действие.")
 	}
 	if got != want {
 		return ErrConflict

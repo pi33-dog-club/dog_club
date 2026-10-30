@@ -123,7 +123,8 @@ func pathIDs(w http.ResponseWriter, r *http.Request) (int32, int32, bool) {
 		}
 		v, err := strconv.ParseInt(raw, 10, 32)
 		if err != nil || v < 1 {
-			writeError(w, r, invalid(k, "Укажите положительный ID."))
+			// A malformed id in the address cannot name an existing record.
+			writeError(w, r, ErrNotFound)
 			return 0, 0, false
 		}
 		if k == "dogID" {
@@ -205,7 +206,7 @@ func query(w http.ResponseWriter, r *http.Request, kind string) (Filter, bool) {
 			f.After = v
 		case "limit":
 			if v < 1 || v > 100 {
-				writeError(w, r, invalid("limit", "Размер страницы от 1 до 100."))
+				writeError(w, r, invalid("limit", "Не удалось загрузить список. Обновите страницу."))
 				return f, false
 			}
 			f.Limit = int(v)
@@ -220,7 +221,7 @@ func query(w http.ResponseWriter, r *http.Request, kind string) (Filter, bool) {
 		if raw := q.Get(key); raw != "" {
 			v, e := time.Parse(time.RFC3339Nano, raw)
 			if e != nil || v.UTC().Year() < 1 || v.UTC().Year() > 9999 {
-				writeError(w, r, invalid(key, "Укажите время RFC3339 с часовым поясом."))
+				writeError(w, r, invalid(key, "Проверьте дату и время в фильтре."))
 				return f, false
 			}
 			if key == "from" {

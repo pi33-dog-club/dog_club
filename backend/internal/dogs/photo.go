@@ -50,11 +50,11 @@ func (p Photo) blob() filestore.Blob {
 // header must agree with the media type, and the picture stays within 40 MP.
 func validatePhoto(media string, data []byte) (int, int, error) {
 	if len(data) == 0 || len(data) > MaxPhotoSize {
-		return 0, 0, invalid("file", "Фото должно быть не больше 5 МиБ.")
+		return 0, 0, invalid("file", "Фото должно быть не больше 5 МБ.")
 	}
 	config, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 {
-		return 0, 0, invalid("file", "Изображение повреждено или превышает 40 мегапикселей.")
+		return 0, 0, invalid("file", "Изображение повреждено или слишком большое. Уменьшите его и загрузите снова.")
 	}
 	if media != "image/jpeg" && media != "image/png" {
 		return 0, 0, invalid("file", "Разрешены JPEG и PNG.")

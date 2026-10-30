@@ -180,7 +180,7 @@ func (s *Service) List(ctx context.Context, p auth.Principal, f Filter) (Page[Do
 		return out, err
 	}
 	if f.After > 1<<31-1 {
-		return out, invalid("after", "Курсор вне диапазона.")
+		return out, invalid("after", "Не удалось загрузить список. Обновите страницу.")
 	}
 	err := s.with(ctx, p, readRoles, func(ctx context.Context, q *repository, p auth.Principal) error {
 		var own *int32
@@ -278,7 +278,7 @@ func (s *Service) references(ctx context.Context, q *repository, p auth.Principa
 	}
 	if cat == "breeding" {
 		if in.DogID == nil || s.breeding == nil {
-			return "", invalid("basis", "Укажите собаку и племенное основание.")
+			return "", invalid("breeding_decision_id", "Укажите собаку и племенное основание.")
 		}
 		name := ""
 		for _, t := range types {
@@ -287,13 +287,13 @@ func (s *Service) references(ctx context.Context, q *repository, p auth.Principa
 			}
 		}
 		if name == "Заключение о вязке" && (in.BreedingDecisionID == nil || in.LitterID != nil) || name == "Акт о регистрации помёта" && (in.LitterID == nil || in.BreedingDecisionID != nil) {
-			return "", invalid("basis", "Основание не соответствует типу документа.")
+			return "", invalid("breeding_decision_id", "Основание не соответствует типу документа.")
 		}
 		if _, err := s.breeding.ReadForDocuments(ctx, q.tx, p, *in.DogID, in.BreedingDecisionID, in.LitterID, in.RecipientMemberID != nil, false); err != nil {
 			return "", domainError(err)
 		}
 	} else if in.BreedingDecisionID != nil || in.LitterID != nil {
-		return "", invalid("basis", "Этот тип документа не использует племенные основания.")
+		return "", invalid("breeding_decision_id", "Этот тип документа не использует племенные основания.")
 	}
 	if err := s.eventReferences(ctx, q, p, in, cat, types); err != nil {
 		return "", err

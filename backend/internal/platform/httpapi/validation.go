@@ -16,7 +16,7 @@ func ValidationProblem(fields ...FieldError) *Problem {
 	if len(fields) == 0 {
 		return nil
 	}
-	problem := NewProblem(http.StatusUnprocessableEntity, "validation_failed", "Проверьте значения полей.")
+	problem := NewProblem(http.StatusUnprocessableEntity, "validation_failed", "Исправьте ошибки в форме.")
 	problem.Errors = append([]FieldError(nil), fields...)
 	return problem
 }

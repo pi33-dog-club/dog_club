@@ -366,7 +366,7 @@ func (s *Service) UpdateEvent(ctx context.Context, p auth.Principal, id int32, i
 }
 func configured(e Event) error {
 	if e.StartsAt == nil || e.EndsAt == nil || e.Timezone == nil || e.Audience == nil || e.Venue == nil {
-		return invalid("event", "Заполните даты, часовой пояс, аудиторию и площадку.")
+		return invalid("event", "Сначала заполните данные мероприятия: даты, часовой пояс, участников и площадку.")
 	}
 	in := EventInput{e.Name, e.Description, e.Type.ID, e.Venue.ID, *e.StartsAt, *e.EndsAt, *e.Timezone, *e.Audience, e.UsesClasses}
 	if err := validateEvent(&in); err != nil {
@@ -526,8 +526,22 @@ func (s *Service) SaveClass(ctx context.Context, p auth.Principal, eventID int32
 }
 func (s *Service) SaveSchedule(ctx context.Context, p auth.Principal, eventID int32, id int64, in ScheduleCommand) (Schedule, error) {
 	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || !textOK(in.Name, 150) || !validPeriod(in.StartsAt, in.EndsAt) {
-		return Schedule{}, invalid("schedule", "Укажите название до 150 символов и корректный период.")
+	var fields []FieldError
+	if in.Name == "" {
+		fields = append(fields, FieldError{"name", "Укажите название пункта расписания."})
+	} else if !textOK(in.Name, 150) {
+		fields = append(fields, tooLong("name", 150))
+	}
+	if in.StartsAt.IsZero() {
+		fields = append(fields, FieldError{"starts_at", "Укажите дату и время начала."})
+	}
+	if in.EndsAt.IsZero() {
+		fields = append(fields, FieldError{"ends_at", "Укажите дату и время окончания."})
+	} else if !in.StartsAt.IsZero() && !validPeriod(in.StartsAt, in.EndsAt) {
+		fields = append(fields, FieldError{"ends_at", "Окончание не может быть раньше начала."})
+	}
+	if err := fail(fields); err != nil {
+		return Schedule{}, err
 	}
 	if err := correction(&in.Correction); err != nil {
 		return Schedule{}, err
@@ -541,10 +555,10 @@ func (s *Service) SaveSchedule(ctx context.Context, p auth.Principal, eventID in
 			return Schedule{}, err
 		}
 		if e.StartsAt == nil || e.EndsAt == nil || in.StartsAt.Before(*e.StartsAt) || in.EndsAt.After(*e.EndsAt) {
-			return Schedule{}, invalid("period", "Расписание должно быть внутри периода мероприятия.")
+			return Schedule{}, invalid("starts_at", "Время выступления должно быть внутри периода мероприятия.")
 		}
 		if in.ClassID != nil && classByID(e, in.ClassID) == nil {
-			return Schedule{}, invalid("class_id", "Класс не относится к мероприятию.")
+			return Schedule{}, invalid("class_id", "Выберите класс этого мероприятия.")
 		}
 		// Keep recorded attendance stable while allowing unused slots to move.
 		facts, err := q.componentFacts(ctx, eventID, "schedule", id)

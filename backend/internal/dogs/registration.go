@@ -20,10 +20,10 @@ func (s *Service) SetRegistrationDate(ctx context.Context, p auth.Principal, id 
 		return Dog{}, invalid("reason", "Укажите причину подтверждения или исправления даты до 500 символов.")
 	}
 	if !in.Date.Set {
-		return Dog{}, invalid("registration_date", "Передайте дату или явный null для снятия подтверждения.")
+		return Dog{}, invalid("registration_date", "Укажите дату регистрации.")
 	}
 	if in.Date.Value != nil && !dateValid(*in.Date.Value, s.now()) {
-		return Dog{}, invalid("registration_date", "Укажите подтверждённую дату YYYY-MM-DD не позднее текущей даты UTC.")
+		return Dog{}, invalid("registration_date", "Дата регистрации не может быть позже сегодняшней.")
 	}
 	return s.mutate(ctx, p, id, in.Version, "registration_date_confirmed", in.Reason, func(ctx context.Context, q *repository, before Dog) error {
 		if in.Date.Value != nil && *in.Date.Value < before.DateOfBirth {

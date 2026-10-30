@@ -43,26 +43,35 @@ func validDate(v string) bool {
 func correction(in *Correction) error {
 	in.Reason = strings.TrimSpace(in.Reason)
 	if in.Version < 1 {
-		return invalid("version", "Укажите текущую версию записи.")
+		return invalid("version", "Обновите страницу и повторите действие.")
 	}
 	if in.Reason == "" || !textOK(in.Reason, 500) {
-		return invalid("reason", "Укажите причину длиной до 500 символов.")
+		return invalid("reason", "Укажите причину, не больше 500 символов.")
 	}
 	return nil
 }
 func validateRequest(in *RequestInput) error {
 	in.Comment = strings.TrimSpace(in.Comment)
-	if in.FemaleID < 1 || in.MaleID < 1 || in.FemaleID == in.MaleID {
-		return invalid("pair", "Выберите двух разных собак.")
+	var fields []FieldError
+	if in.FemaleID < 1 {
+		fields = append(fields, FieldError{"female_dog_id", "Выберите суку."})
+	}
+	if in.MaleID < 1 {
+		fields = append(fields, FieldError{"male_dog_id", "Выберите кобеля."})
+	} else if in.FemaleID == in.MaleID {
+		fields = append(fields, FieldError{"male_dog_id", "Выберите двух разных собак."})
+	}
+	if len(fields) > 0 {
+		return &ValidationError{fields}
 	}
 	if !validDate(in.PlannedDate) {
-		return invalid("planned_date", "Укажите дату YYYY-MM-DD.")
+		return invalid("planned_date", "Укажите существующую дату.")
 	}
 	if in.ExpectedBirthDate != nil && (!validDate(*in.ExpectedBirthDate) || *in.ExpectedBirthDate <= in.PlannedDate) {
 		return invalid("expected_birth_date", "Ожидаемая дата рождения должна быть позже вязки.")
 	}
 	if !textOK(in.Comment, 2000) {
-		return invalid("comment", "Комментарий — до 2000 символов без управляющих знаков.")
+		return invalid("comment", "Комментарий — не больше 2000 символов.")
 	}
 	return nil
 }
@@ -730,7 +739,7 @@ func (s *Service) validateLitter(ctx context.Context, q *repository, p auth.Prin
 }
 func (s *Service) CreateLitter(ctx context.Context, p auth.Principal, in LitterInput) (Litter, error) {
 	if in.BreedingID < 1 || in.BreedingID > 1<<31-1 {
-		return Litter{}, invalid("breeding_id", "Укажите положительный ID вязки в пределах int32.")
+		return Litter{}, invalid("breeding_id", "Выберите вязку.")
 	}
 	if err := correction(&in.Correction); err != nil {
 		return Litter{}, err

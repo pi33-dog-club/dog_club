@@ -51,8 +51,21 @@ func normalizeInvite(in InviteInput) (InviteInput, error) {
 	in.Login = strings.ToLower(strings.TrimSpace(in.Login))
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	address, err := mail.ParseAddress(in.Email)
-	if !loginPattern.MatchString(in.Login) || len(in.Email) > 254 || err != nil || address.Address != in.Email || strings.ContainsAny(in.Email, "\r\n") || !validRole(in.Role) || (in.ClubMemberID != nil && *in.ClubMemberID <= 0) {
-		return in, ErrInvalidInput
+	var fields []FieldError
+	if !loginPattern.MatchString(in.Login) {
+		fields = append(fields, FieldError{"login", "Логин: от 3 до 64 символов — строчные латинские буквы, цифры, точка, дефис или подчёркивание; начинается с буквы или цифры."})
+	}
+	if len(in.Email) > 254 || err != nil || address.Address != in.Email || strings.ContainsAny(in.Email, "\r\n") {
+		fields = append(fields, FieldError{"email", "Укажите email в виде name@example.ru, не больше 254 символов."})
+	}
+	if !validRole(in.Role) {
+		fields = append(fields, FieldError{"role", "Выберите профиль из списка."})
+	}
+	if in.ClubMemberID != nil && *in.ClubMemberID <= 0 {
+		fields = append(fields, FieldError{"club_member_id", "Укажите номер карточки — целое число от 1."})
+	}
+	if len(fields) > 0 {
+		return in, &InputError{fields}
 	}
 	return in, nil
 }
@@ -244,7 +257,7 @@ func (s *Service) Activate(ctx context.Context, secret, password string) error {
 		return ErrInvalidToken
 	}
 	if !validPassword(password) {
-		return ErrInvalidInput
+		return inputError("password", passwordRule)
 	}
 	hash, err := s.passwords.hash(ctx, password)
 	if err != nil {
@@ -473,7 +486,7 @@ func (s *Service) ResetPassword(ctx context.Context, secret, password string) er
 		return ErrInvalidToken
 	}
 	if !validPassword(password) {
-		return ErrInvalidInput
+		return inputError("password", passwordRule)
 	}
 	hash, err := s.passwords.hash(ctx, password)
 	if err != nil {
@@ -498,7 +511,7 @@ func (s *Service) ResetPassword(ctx context.Context, secret, password string) er
 
 func (s *Service) ChangePassword(ctx context.Context, p Principal, oldPassword, password string) error {
 	if !validPassword(password) {
-		return ErrInvalidInput
+		return inputError("password", passwordRule)
 	}
 	if len(oldPassword) > 1024 {
 		return ErrUnauthenticated

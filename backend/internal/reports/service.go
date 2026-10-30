@@ -29,7 +29,7 @@ func NewService(a *auth.Service, m *members.Service, d *dogs.Service, b *breedin
 func (s *Service) ClubActivity(ctx context.Context, p auth.Principal, period reporting.Period) (Report, error) {
 	out := Report{Period: period, Methodology: methodology}
 	if !period.Valid() {
-		return out, invalid("period", "Передайте from и to в формате YYYY-MM-DD с корректным порядком дат.")
+		return out, invalid("period", "Укажите обе даты периода; дата «по» не раньше даты «с».")
 	}
 	err := s.access.WithAccess(ctx, p, []string{"staff", "leader"}, func(ctx context.Context, tx pgx.Tx, p auth.Principal) error {
 		m, err := s.members.ClubActivity(ctx, tx, p, period)

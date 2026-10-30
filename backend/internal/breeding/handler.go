@@ -151,7 +151,8 @@ func pathID(w http.ResponseWriter, r *http.Request, key string) (int64, bool) {
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, key), 10, bits)
 	if err != nil || id < 1 {
-		writeError(w, r, invalid(key, "Укажите положительный ID."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return 0, false
 	}
 	return id, true
@@ -178,7 +179,7 @@ func filter(w http.ResponseWriter, r *http.Request) (Filter, bool) {
 	}
 	l, err := number(r, "limit", 50, 100)
 	if err != nil || l < 1 {
-		writeError(w, r, invalid("limit", "Укажите от 1 до 100 записей."))
+		writeError(w, r, invalid("limit", "Не удалось загрузить список. Обновите страницу."))
 		return Filter{}, false
 	}
 	d, err := number(r, "dog_id", 0, 1<<31-1)
@@ -235,7 +236,7 @@ func (h *Handler) patients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if f.After > 1<<31-1 {
-		writeError(w, r, invalid("after", "ID собаки выходит за диапазон."))
+		writeError(w, r, invalid("after", "Не удалось загрузить список. Обновите страницу."))
 		return
 	}
 	breed, err := number(r, "breed_id", 0, 1<<31-1)

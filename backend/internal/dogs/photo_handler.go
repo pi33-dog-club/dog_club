@@ -54,7 +54,7 @@ func (h *Handler) setPhoto(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, MaxPhotoSize+(64<<10))
 	reader, err := r.MultipartReader()
 	if err != nil {
-		httpapi.WriteProblem(w, r, httpapi.NewProblem(415, "unsupported_media_type", "Ожидается multipart/form-data."))
+		httpapi.WriteProblem(w, r, httpapi.NewProblem(415, "unsupported_media_type", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 		return
 	}
 	var data []byte
@@ -73,7 +73,7 @@ func (h *Handler) setPhoto(w http.ResponseWriter, r *http.Request) {
 		key := part.FormName()
 		if key != "file" && key != "version" || seen[key] {
 			part.Close()
-			writeError(w, r, invalid("multipart", "Укажите file и version ровно по одному разу."))
+			writeError(w, r, invalid("multipart", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 			return
 		}
 		seen[key] = true
@@ -88,7 +88,7 @@ func (h *Handler) setPhoto(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if int64(len(b)) > limit {
-			httpapi.WriteProblem(w, r, httpapi.NewProblem(413, "body_too_large", "Фото должно быть не больше 5 МиБ."))
+			httpapi.WriteProblem(w, r, httpapi.NewProblem(413, "body_too_large", "Фото должно быть не больше 5 МБ."))
 			return
 		}
 		if key == "file" {
@@ -102,7 +102,7 @@ func (h *Handler) setPhoto(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(seen) != 2 {
-		writeError(w, r, invalid("multipart", "Требуются file и version."))
+		writeError(w, r, invalid("multipart", "Выберите файл."))
 		return
 	}
 	out, err := h.service.SetPhoto(r.Context(), auth.PrincipalFrom(r), id, version, media, data)
@@ -128,8 +128,8 @@ func (h *Handler) removePhoto(w http.ResponseWriter, r *http.Request) {
 func photoUploadError(w http.ResponseWriter, r *http.Request, err error) {
 	var size *http.MaxBytesError
 	if errors.As(err, &size) {
-		httpapi.WriteProblem(w, r, httpapi.NewProblem(413, "body_too_large", "Фото должно быть не больше 5 МиБ."))
+		httpapi.WriteProblem(w, r, httpapi.NewProblem(413, "body_too_large", "Фото должно быть не больше 5 МБ."))
 		return
 	}
-	httpapi.WriteProblem(w, r, httpapi.NewProblem(400, "invalid_json", "Некорректный multipart-запрос."))
+	httpapi.WriteProblem(w, r, httpapi.NewProblem(400, "invalid_json", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 }

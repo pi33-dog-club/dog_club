@@ -142,7 +142,8 @@ func pathID(w http.ResponseWriter, r *http.Request, key string) (int64, bool) {
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, key), 10, bits)
 	if err != nil || id < 1 {
-		writeError(w, r, invalid(key, "Укажите положительный ID в поддерживаемом диапазоне."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return 0, false
 	}
 	return id, true
@@ -242,7 +243,7 @@ func filter(w http.ResponseWriter, r *http.Request, bits int) (Filter, bool) {
 	}
 	limit, err := number(r, "limit", 50, 100)
 	if err != nil || limit < 1 {
-		writeError(w, r, invalid("limit", "Укажите от 1 до 100 записей."))
+		writeError(w, r, invalid("limit", "Не удалось загрузить список. Обновите страницу."))
 		return Filter{}, false
 	}
 	typeID, err := number(r, "type_id", 0, 1<<31-1)
@@ -271,7 +272,7 @@ func filter(w http.ResponseWriter, r *http.Request, bits int) (Filter, bool) {
 			}
 			date, err := time.Parse(time.RFC3339, values[0])
 			if err != nil || date.Year() < 1 || date.UTC().Year() < 1 || date.UTC().Year() > 9999 {
-				writeError(w, r, invalid(entry.key, "Укажите дату и время RFC3339 с часовым поясом."))
+				writeError(w, r, invalid(entry.key, "Проверьте дату и время в фильтре."))
 				return Filter{}, false
 			}
 			*entry.target = &date

@@ -43,10 +43,10 @@ func textOK(s string, max int) bool {
 func correction(c *Correction) error {
 	c.Reason = strings.TrimSpace(c.Reason)
 	if c.Version < 1 {
-		return invalid("version", "Укажите текущую версию записи.")
+		return invalid("version", "Обновите страницу и повторите действие.")
 	}
 	if c.Reason == "" || !textOK(c.Reason, 500) {
-		return invalid("reason", "Укажите причину до 500 символов без управляющих знаков.")
+		return invalid("reason", "Укажите причину, не больше 500 символов.")
 	}
 	return nil
 }
@@ -55,7 +55,7 @@ func validFilter(f Filter) error {
 		return invalid("query", "Проверьте параметры фильтра и страницы.")
 	}
 	if f.From != nil && f.To != nil && f.To.Before(*f.From) {
-		return invalid("period", "Окончание фильтра не может быть раньше начала.")
+		return invalid("to", "Дата «по» не может быть раньше даты «с».")
 	}
 	return nil
 }
@@ -75,8 +75,12 @@ func domainError(err error) error {
 	}
 	var ev *events.ValidationError
 	var vet *veterinary.ValidationError
-	if errors.As(err, &ev) || errors.As(err, &vet) {
-		return invalid("fields", "Проверьте период и связи занятия.")
+	// Keep the other module's own explanation: it says what exactly to fix.
+	if errors.As(err, &ev) && len(ev.Fields) > 0 {
+		return invalid("registration_id", ev.Fields[0].Message)
+	}
+	if errors.As(err, &vet) && len(vet.Fields) > 0 {
+		return invalid("dog_id", vet.Fields[0].Message)
 	}
 	return err
 }
@@ -142,18 +146,21 @@ func (s *Service) SetInstructor(ctx context.Context, p auth.Principal, id string
 	in.Reason = strings.TrimSpace(in.Reason)
 	in.Qualification = strings.TrimSpace(in.Qualification)
 	if id == "" || !textOK(id, 200) || in.Version < 0 {
-		return Instructor{}, invalid("profile_id", "Укажите профиль сотрудника и текущую версию (0 для первого назначения).")
+		return Instructor{}, invalid("profile_id", "Выберите сотрудника из списка и обновите страницу.")
 	}
-	if in.Reason == "" || !textOK(in.Reason, 500) || in.Qualification == "" || !textOK(in.Qualification, 1000) {
-		return Instructor{}, invalid("qualification", "Укажите основание допуска до 1000 символов и причину изменения до 500.")
+	if in.Qualification == "" || !textOK(in.Qualification, 1000) {
+		return Instructor{}, invalid("qualification", "Укажите основание допуска, не больше 1000 символов.")
+	}
+	if in.Reason == "" || !textOK(in.Reason, 500) {
+		return Instructor{}, invalid("reason", "Укажите причину изменения, не больше 500 символов.")
 	}
 	if len(in.TypeIDs) > 100 || in.Enabled && len(in.TypeIDs) == 0 {
-		return Instructor{}, invalid("type_ids", "Для включённого допуска укажите виды дрессировки, не более 100.")
+		return Instructor{}, invalid("type_ids", "Отметьте хотя бы один вид дрессировки.")
 	}
 	seen := map[int32]bool{}
 	for _, id := range in.TypeIDs {
 		if id < 1 || seen[id] {
-			return Instructor{}, invalid("type_ids", "Укажите разные положительные ID видов дрессировки.")
+			return Instructor{}, invalid("type_ids", "Выберите виды дрессировки из списка, без повторов.")
 		}
 		seen[id] = true
 	}
@@ -214,14 +221,26 @@ func (s *Service) grantForWrite(ctx context.Context, q *repository, p auth.Princ
 func validateInput(in *Input, birth string, now time.Time) error {
 	in.Result = strings.TrimSpace(in.Result)
 	in.Timezone = strings.TrimSpace(in.Timezone)
-	if in.TypeID < 1 || in.Result == "" || !textOK(in.Result, 2000) {
-		return invalid("result", "Укажите вид дрессировки и результат до 2000 символов.")
+	if in.TypeID < 1 {
+		return invalid("type_id", "Выберите вид дрессировки.")
 	}
-	if in.StartsAt.IsZero() || in.EndsAt.IsZero() || in.StartsAt.UTC().Year() < 1 || in.EndsAt.UTC().Year() > 9999 || in.EndsAt.Before(in.StartsAt) || in.EndsAt.After(now) {
-		return invalid("period", "Укажите фактические начало и окончание уже проведённого занятия.")
+	if in.Result == "" || !textOK(in.Result, 2000) {
+		return invalid("result", "Опишите результат занятия, не больше 2000 символов.")
+	}
+	if in.StartsAt.IsZero() || in.StartsAt.UTC().Year() < 1 {
+		return invalid("starts_at", "Укажите дату и время начала.")
+	}
+	if in.EndsAt.IsZero() || in.EndsAt.UTC().Year() > 9999 {
+		return invalid("ends_at", "Укажите дату и время окончания.")
+	}
+	if in.EndsAt.Before(in.StartsAt) {
+		return invalid("ends_at", "Окончание не может быть раньше начала.")
+	}
+	if in.EndsAt.After(now) {
+		return invalid("ends_at", "Записывается только уже проведённое занятие: окончание не может быть в будущем.")
 	}
 	if in.Timezone == "" || in.Timezone == "Local" || !textOK(in.Timezone, 100) {
-		return invalid("timezone", "Укажите явный часовой пояс IANA или UTC.")
+		return invalid("timezone", "Выберите часовой пояс из списка.")
 	}
 	loc, err := time.LoadLocation(in.Timezone)
 	if err != nil {
@@ -231,7 +250,7 @@ func validateInput(in *Input, birth string, now time.Time) error {
 		return invalid("starts_at", "Занятие не может быть раньше рождения собаки.")
 	}
 	if (in.EventID == nil) != (in.RegistrationID == nil) || in.EventID != nil && (*in.EventID < 1 || *in.RegistrationID < 1) {
-		return invalid("registration_id", "Укажите одновременно мероприятие и регистрацию либо два null.")
+		return invalid("registration_id", "Выберите и мероприятие, и запись собаки на него.")
 	}
 	return nil
 }
@@ -308,7 +327,7 @@ func (s *Service) Update(ctx context.Context, p auth.Principal, dog, id int32, i
 }
 func (s *Service) save(ctx context.Context, p auth.Principal, dog, id int32, version int64, reason string, in Input) (Session, error) {
 	if dog < 1 || id < 0 {
-		return Session{}, invalid("id", "Укажите положительный ID собаки и занятия.")
+		return Session{}, invalid("id", "Запись не найдена. Откройте её из списка.")
 	}
 	return with(ctx, s, p, []string{"staff"}, func(ctx context.Context, q *repository, p auth.Principal) (Session, error) {
 		animal, err := s.dogs.ReadForVeterinary(ctx, q.tx, p, dog)

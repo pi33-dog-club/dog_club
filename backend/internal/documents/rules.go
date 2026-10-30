@@ -29,25 +29,46 @@ func text(s string, max int) bool {
 }
 func date(s string) bool { t, e := time.Parse(time.DateOnly, s); return e == nil && t.Year() > 0 }
 func validate(in *Input, today string) error {
-	if in.BreedingDecisionID != nil && (*in.BreedingDecisionID < 1 || in.LitterID != nil) || in.LitterID != nil && *in.LitterID < 1 {
-		return invalid("basis", "Укажите одно положительное племенное основание.")
+	if in.BreedingDecisionID != nil && in.LitterID != nil {
+		return invalid("litter_id", "Выберите одно основание: решение эксперта или помёт.")
+	}
+	if in.BreedingDecisionID != nil && *in.BreedingDecisionID < 1 {
+		return invalid("breeding_decision_id", "Выберите решение эксперта из списка.")
+	}
+	if in.LitterID != nil && *in.LitterID < 1 {
+		return invalid("litter_id", "Выберите помёт из списка.")
 	}
 	in.Number = strings.TrimSpace(in.Number)
 	in.Issuer = strings.TrimSpace(in.Issuer)
-	if in.TypeID < 1 || !text(in.Number, 50) || !text(in.Issuer, 2000) {
-		return invalid("fields", "Проверьте тип, номер (до 50) и выдавшую организацию (до 2000 символов).")
+	if in.TypeID < 1 {
+		return invalid("type_id", "Выберите тип документа.")
 	}
-	if in.EventID == nil && (in.DogID == nil) == (in.MemberID == nil) {
-		return invalid("subject", "Укажите либо собаку, либо человека.")
+	if !text(in.Number, 50) {
+		return invalid("number", "Номер — не больше 50 символов.")
 	}
-	for _, id := range []*int32{in.DogID, in.MemberID, in.RecipientMemberID, in.EventID, in.EventResultID} {
-		if id != nil && *id < 1 {
-			return invalid("subject", "Укажите положительный ID.")
+	if !text(in.Issuer, 2000) {
+		return invalid("issuer", "Не больше 2000 символов.")
+	}
+	if in.EventID == nil && in.DogID == nil && in.MemberID == nil {
+		return invalid("dog_id", "Выберите собаку или члена клуба, к которому относится документ.")
+	}
+	if in.EventID == nil && in.DogID != nil && in.MemberID != nil {
+		return invalid("member_id", "Документ относится либо к собаке, либо к человеку. Выберите что-то одно.")
+	}
+	for _, v := range []struct {
+		field string
+		id    *int32
+	}{{"dog_id", in.DogID}, {"member_id", in.MemberID}, {"recipient_member_id", in.RecipientMemberID}, {"event_id", in.EventID}, {"event_result_id", in.EventResultID}} {
+		if v.id != nil && *v.id < 1 {
+			return invalid(v.field, "Выберите значение из списка.")
 		}
 	}
-	for _, d := range []*string{in.IssueDate, in.ExpiresOn} {
-		if d != nil && !date(*d) {
-			return invalid("date", "Укажите дату YYYY-MM-DD.")
+	for _, v := range []struct {
+		field string
+		value *string
+	}{{"issue_date", in.IssueDate}, {"expires_on", in.ExpiresOn}} {
+		if v.value != nil && !date(*v.value) {
+			return invalid(v.field, "Укажите существующую дату.")
 		}
 	}
 	// Lab 3 fn_document_dates_check: a document cannot be issued in the future.
@@ -67,8 +88,11 @@ func validate(in *Input, today string) error {
 }
 func correction(c *Correction) error {
 	c.Reason = strings.TrimSpace(c.Reason)
-	if c.Version < 1 || c.Reason == "" || !text(c.Reason, 500) {
-		return invalid("correction", "Укажите текущую версию и причину до 500 символов.")
+	if c.Version < 1 {
+		return invalid("version", "Обновите страницу и повторите действие.")
+	}
+	if c.Reason == "" || !text(c.Reason, 500) {
+		return invalid("reason", "Укажите причину, не больше 500 символов.")
 	}
 	return nil
 }
@@ -78,31 +102,31 @@ func validFilter(f Filter) error {
 	}
 	for _, d := range []*string{f.From, f.To} {
 		if d != nil && !date(*d) {
-			return invalid("date", "Укажите дату YYYY-MM-DD.")
+			return invalid("from", "Укажите существующую дату.")
 		}
 	}
 	if f.From != nil && f.To != nil && *f.To < *f.From {
-		return invalid("date", "Проверьте порядок дат.")
+		return invalid("to", "Дата «по» не может быть раньше даты «с».")
 	}
 	return nil
 }
 func validateFile(name, media string, data []byte) error {
 	if len(data) == 0 || len(data) > filestore.MaxSize || !text(name, 150) || strings.ContainsAny(name, `/\`) || name == "" || name == "." || name == ".." {
-		return invalid("file", "Укажите безопасное имя и файл размером до 10 МиБ.")
+		return invalid("file", "Файл должен быть не больше 10 МБ, а его имя — без символов / и \\.")
 	}
 	ext := strings.ToLower(filepath.Ext(name))
 	switch media {
 	case "application/pdf":
 		if ext != ".pdf" || !bytes.HasPrefix(data, []byte("%PDF-")) || !bytes.HasSuffix(bytes.TrimSpace(data), []byte("%%EOF")) {
-			return invalid("file", "Ожидается PDF-файл.")
+			return invalid("file", "Файл должен быть в формате PDF.")
 		}
 	case "image/png", "image/jpeg":
 		config, format, err := image.DecodeConfig(bytes.NewReader(data))
 		if err != nil || config.Width < 1 || config.Height < 1 || int64(config.Width)*int64(config.Height) > 40000000 {
-			return invalid("file", "Изображение повреждено или превышает 40 мегапикселей.")
+			return invalid("file", "Изображение повреждено или слишком большое. Уменьшите его и загрузите снова.")
 		}
 		if media == "image/png" && (format != "png" || ext != ".png") || media == "image/jpeg" && (format != "jpeg" || (ext != ".jpg" && ext != ".jpeg")) {
-			return invalid("file", "Расширение и содержимое изображения должны совпадать.")
+			return invalid("file", "Расширение файла не совпадает с его содержимым. Сохраните изображение как JPEG или PNG заново.")
 		}
 	default:
 		return invalid("file", "Разрешены PDF, JPEG и PNG.")

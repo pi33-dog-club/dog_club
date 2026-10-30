@@ -77,7 +77,8 @@ func respond(w http.ResponseWriter, r *http.Request, value any, err error) {
 func positiveID(w http.ResponseWriter, r *http.Request, key string) (int32, bool) {
 	v, err := strconv.ParseInt(chi.URLParam(r, key), 10, 32)
 	if err != nil || v < 1 {
-		writeError(w, r, invalid(key, "Укажите положительный идентификатор."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return 0, false
 	}
 	return int32(v), true

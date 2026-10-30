@@ -2,6 +2,7 @@ package members
 
 import (
 	"context"
+	"fmt"
 	"net/mail"
 	"strings"
 	"time"
@@ -47,7 +48,7 @@ func validateCard(in *CreateInput, now time.Time) error {
 		}
 		date, err := time.Parse(time.DateOnly, *item.value)
 		if err != nil || date.Year() < 1 || *item.value > today {
-			fields = append(fields, FieldError{item.field, "Укажите существующую дату YYYY-MM-DD, не позднее текущей даты UTC."})
+			fields = append(fields, FieldError{item.field, "Укажите существующую дату не позже сегодняшней."})
 			continue
 		}
 		if item.field == "date_of_birth" && *item.value < "1900-01-01" {
@@ -241,19 +242,19 @@ func (s *Service) SaveContact(ctx context.Context, p auth.Principal, memberID, i
 		}
 		in.Value = strings.TrimSpace(in.Value)
 		if in.Value == "" || !validText(in.Value, 254) {
-			return invalid("value", "Укажите контакт длиной до 254 символов.")
+			return invalid("value", "Укажите контакт, не больше 254 символов.")
 		}
 		switch kind {
 		case "Email":
 			in.Value = strings.ToLower(in.Value)
 			address, err := mail.ParseAddress(in.Value)
 			if err != nil || address.Address != in.Value || len(in.Value) > 254 {
-				return invalid("value", "Укажите email без имени получателя.")
+				return invalid("value", "Укажите email в виде name@example.ru, без имени и кавычек.")
 			}
 		case "Телефон":
 			digits := phoneDigits(in.Value)
 			if len(digits) < 7 || len(digits) > 15 || len(in.Value) > 50 {
-				return invalid("value", "Укажите телефон с 7–15 цифрами; допустимы пробелы, +, скобки, точка и дефис.")
+				return invalid("value", "Укажите телефон: от 7 до 15 цифр, например +7 900 123-45-67. Можно использовать пробелы, +, скобки, точку и дефис.")
 			}
 		default:
 			return invalid("type_id", "Этот тип контакта пока не поддерживается.")
@@ -269,8 +270,23 @@ func (s *Service) SaveAddress(ctx context.Context, p auth.Principal, memberID, i
 	in.Street = strings.TrimSpace(in.Street)
 	in.BuildingNumber = strings.TrimSpace(in.BuildingNumber)
 	in.ApartmentNumber = strings.TrimSpace(in.ApartmentNumber)
-	if in.TypeID < 1 || in.Locality == "" || !validText(in.Locality, 100) || !validText(in.Street, 100) || !validText(in.BuildingNumber, 20) || !validText(in.ApartmentNumber, 20) {
-		return Member{}, invalid("address", "Укажите тип и населённый пункт; пределы: населённый пункт/улица — 100, дом/квартира — 20 символов.")
+	var fields []FieldError
+	if in.TypeID < 1 {
+		fields = append(fields, FieldError{Field: "type_id", Message: "Выберите тип адреса."})
+	}
+	if in.Locality == "" {
+		fields = append(fields, FieldError{Field: "locality", Message: "Укажите населённый пункт."})
+	}
+	for _, v := range []struct {
+		field, value string
+		max          int
+	}{{"locality", in.Locality, 100}, {"street", in.Street, 100}, {"building_number", in.BuildingNumber, 20}, {"apartment_number", in.ApartmentNumber, 20}} {
+		if !validText(v.value, v.max) {
+			fields = append(fields, FieldError{Field: v.field, Message: fmt.Sprintf("Не больше %d символов.", v.max)})
+		}
+	}
+	if len(fields) > 0 {
+		return Member{}, &ValidationError{Fields: fields}
 	}
 	return s.mutate(ctx, p, memberID, in.Version, "address_saved", func(ctx context.Context, q *repository, _ Member) error { return q.saveAddress(ctx, memberID, id, in) })
 }

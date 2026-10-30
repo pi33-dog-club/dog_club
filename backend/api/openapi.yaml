@@ -503,6 +503,17 @@ components:
             additionalProperties: false
             properties:
                 action:
+                    enum:
+                        - created
+                        - corrected
+                        - cancelled
+                        - approved
+                        - rejected
+                        - performed
+                        - litter_recorded
+                        - puppy_registered
+                        - puppy_linked
+                        - puppy_unlinked
                     type: string
                 actor_profile_id:
                     type: string
@@ -1632,6 +1643,7 @@ components:
             additionalProperties: false
             properties:
                 date:
+                    description: Не раньше даты рождения собаки и не позднее текущей даты UTC; null — дата неизвестна.
                     format: date
                     type:
                         - string
@@ -1826,6 +1838,7 @@ components:
                         - $ref: '#/components/schemas/DogParentInput'
                         - type: "null"
                 issuer:
+                    description: Заполняется вместе с number.
                     maxLength: 150
                     type: string
                 mother:
@@ -1833,6 +1846,7 @@ components:
                         - $ref: '#/components/schemas/DogParentInput'
                         - type: "null"
                 number:
+                    description: Заполняется вместе с issuer; пустые оба означают, что родословной нет.
                     maxLength: 100
                     type: string
                 version:
@@ -2732,8 +2746,9 @@ components:
                         - months
                     type: string
                 value:
+                    description: Не больше 100 лет — 36500 дней или 1200 месяцев.
                     format: int32
-                    maximum: 2147483647
+                    maximum: 36500
                     minimum: 1
                     type: integer
             required:
@@ -3182,7 +3197,7 @@ components:
                     minimum: 1
                     type: integer
                 value:
-                    description: 'Телефон: 7–15 цифр, до 50 байт с форматированием, без подстановки кода страны. Email: до 254 байт, без имени получателя.'
+                    description: Для типа «Email» — один адрес вида name@example.ru без имени и кавычек; для «Телефон» — от 7 до 15 цифр, допустимы пробелы, +, скобки, точка и дефис, всего не больше 50 символов.
                     maxLength: 254
                     minLength: 1
                     type: string
@@ -3394,7 +3409,7 @@ components:
         Problem:
             example:
                 code: validation_failed
-                detail: Проверьте значения полей.
+                detail: Исправьте ошибки в форме.
                 errors:
                     - code: required
                       field: name
@@ -3749,6 +3764,17 @@ components:
             additionalProperties: false
             properties:
                 action:
+                    enum:
+                        - created
+                        - corrected
+                        - saved
+                        - state_changed
+                        - experts_changed
+                        - cancelled
+                        - attended
+                        - qualification_decided
+                        - result_recorded
+                        - voided
                     type: string
                 actor_profile_id:
                     type: string
@@ -3880,6 +3906,7 @@ components:
                 enabled:
                     type: boolean
                 max_age_months:
+                    description: Не меньше min_age_months.
                     maximum: 1200
                     minimum: 0
                     type:
@@ -3900,6 +3927,7 @@ components:
                     minLength: 1
                     type: string
                 requirements:
+                    description: Если заполнено, requires_expert должен быть true.
                     maxLength: 2000
                     type: string
                 requires_expert:
@@ -4091,6 +4119,7 @@ components:
                     minimum: 1
                     type: integer
                 uses_classes:
+                    description: Нельзя включить при audience=people.
                     type: boolean
                 venue_id:
                     format: int64
@@ -4679,6 +4708,7 @@ components:
                     minimum: 1
                     type: integer
                 uses_classes:
+                    description: Нельзя включить при audience=people.
                     type: boolean
                 venue_id:
                     format: int64
@@ -4934,6 +4964,11 @@ components:
             additionalProperties: false
             properties:
                 action:
+                    enum:
+                        - created
+                        - corrected
+                        - file_added
+                        - voided
                     type: string
                 actor_profile_id:
                     type: string
@@ -5460,6 +5495,11 @@ components:
             additionalProperties: false
             properties:
                 action:
+                    enum:
+                        - saved
+                        - created
+                        - corrected
+                        - voided
                     type: string
                 actor_profile_id:
                     type: string
@@ -5709,9 +5749,29 @@ components:
                     format: date-time
                     type: string
                 decision:
+                    enum:
+                        - allowed
+                        - denied
+                        - not_assessed
+                        - review_required
                     type: string
                 reasons:
                     items:
+                        enum:
+                            - clearance_missing
+                            - clearance_voided
+                            - examination_voided
+                            - denied
+                            - not_assessed
+                            - clearance_validity_unknown
+                            - clearance_expired
+                            - clearance_before_examination
+                            - vaccinations_missing
+                            - vaccination_voided
+                            - vaccination_after_examination
+                            - vaccination_validity_unknown
+                            - vaccination_expired
+                            - vaccination_expired_at_examination
                         type: string
                     type: array
             required:
@@ -5812,6 +5872,11 @@ components:
                     type: integer
                 warnings:
                     items:
+                        enum:
+                            - legacy_incomplete
+                            - medical_clearance
+                            - attendance_unconfirmed
+                            - event_source_changed
                         type: string
                     type: array
             required:

@@ -91,7 +91,8 @@ func respond(w http.ResponseWriter, r *http.Request, out any, err error) {
 func documentID(w http.ResponseWriter, r *http.Request) (int32, bool) {
 	n, err := strconv.ParseInt(chi.URLParam(r, "documentID"), 10, 32)
 	if err != nil || n < 1 {
-		writeError(w, r, invalid("document_id", "Укажите положительный ID документа."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return 0, false
 	}
 	return int32(n), true
@@ -185,7 +186,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, filestore.MaxSize+(64<<10))
 	reader, err := r.MultipartReader()
 	if err != nil {
-		httpapi.WriteProblem(w, r, httpapi.NewProblem(415, "unsupported_media_type", "Ожидается multipart/form-data."))
+		httpapi.WriteProblem(w, r, httpapi.NewProblem(415, "unsupported_media_type", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 		return
 	}
 	var data []byte
@@ -204,7 +205,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 		key := part.FormName()
 		if key != "file" && key != "version" && key != "reason" || seen[key] {
 			part.Close()
-			writeError(w, r, invalid("multipart", "Укажите file, version и reason ровно по одному разу."))
+			writeError(w, r, invalid("multipart", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 			return
 		}
 		seen[key] = true
@@ -247,7 +248,7 @@ func (h *Handler) upload(w http.ResponseWriter, r *http.Request) {
 		part.Close()
 	}
 	if len(seen) != 3 {
-		writeError(w, r, invalid("multipart", "Требуются file, version и reason."))
+		writeError(w, r, invalid("multipart", "Выберите файл и укажите причину."))
 		return
 	}
 	out, err := h.service.Upload(r.Context(), auth.PrincipalFrom(r), id, c, name, media, data)
@@ -259,7 +260,7 @@ func uploadError(w http.ResponseWriter, r *http.Request, err error) {
 		httpapi.WriteProblem(w, r, httpapi.NewProblem(413, "body_too_large", "Превышен размер запроса."))
 		return
 	}
-	httpapi.WriteProblem(w, r, httpapi.NewProblem(400, "invalid_json", "Некорректный multipart-запрос."))
+	httpapi.WriteProblem(w, r, httpapi.NewProblem(400, "invalid_json", "Не удалось прочитать файл. Выберите его ещё раз и повторите."))
 }
 func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
 	id, ok := documentID(w, r)
@@ -268,7 +269,8 @@ func (h *Handler) download(w http.ResponseWriter, r *http.Request) {
 	}
 	fid, err := strconv.ParseInt(chi.URLParam(r, "fileID"), 10, 64)
 	if err != nil || fid < 1 {
-		writeError(w, r, invalid("file_id", "Укажите положительный ID файла."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return
 	}
 	f, data, err := h.service.Download(r.Context(), auth.PrincipalFrom(r), id, fid)

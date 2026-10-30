@@ -50,11 +50,11 @@ func parseQuery(r *http.Request, export bool) (reporting.Period, string, error) 
 	}
 	period := reporting.Period{From: values.Get("from"), To: values.Get("to")}
 	if !period.Valid() {
-		return period, "", invalid("period", "Нужны from и to в формате YYYY-MM-DD с корректным порядком дат.")
+		return period, "", invalid("period", "Укажите обе даты периода; дата «по» не раньше даты «с».")
 	}
 	format := values.Get("format")
 	if export && format != "pdf" && format != "csv" {
-		return period, "", invalid("format", "Выберите format=pdf или format=csv.")
+		return period, "", invalid("format", "Выберите формат файла: PDF или CSV.")
 	}
 	return period, format, nil
 }

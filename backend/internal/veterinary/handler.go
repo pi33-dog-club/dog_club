@@ -99,7 +99,8 @@ func pathID(w http.ResponseWriter, r *http.Request, key string) (int64, bool) {
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, key), 10, bits)
 	if err != nil || id < 1 {
-		writeError(w, r, invalid(key, "Укажите положительный ID."))
+		// A malformed id in the address cannot name an existing record.
+		writeError(w, r, ErrNotFound)
 		return 0, false
 	}
 	return id, true

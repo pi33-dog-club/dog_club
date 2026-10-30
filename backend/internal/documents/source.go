@@ -40,7 +40,7 @@ func (s *Service) source(ctx context.Context, q *repository, p auth.Principal, d
 	switch in.Template {
 	case "breeding_conclusion", "litter_act":
 		if d.DogID == nil || in.ExaminationID != nil || in.ClearanceID != nil || s.breeding == nil {
-			return out, invalid("basis", "Укажите племенное основание без медицинских ID.")
+			return out, invalid("basis", "Для этой формы выберите только племенное основание.")
 		}
 		if in.Template == "breeding_conclusion" && (d.TypeName != "Заключение о вязке" || d.BreedingDecisionID == nil) || in.Template == "litter_act" && (d.TypeName != "Акт о регистрации помёта" || d.LitterID == nil) {
 			return out, invalid("template", "Форма не соответствует типу и основанию.")

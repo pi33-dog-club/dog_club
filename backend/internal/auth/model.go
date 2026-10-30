@@ -90,3 +90,18 @@ func requestID(ctx context.Context) string {
 
 // RequestID returns the bounded identifier used by transactional audit records.
 func RequestID(ctx context.Context) string { return requestID(ctx) }
+
+// FieldError explains one rejected request field in words a person can act on.
+type FieldError struct{ Field, Message string }
+
+// InputError is ErrInvalidInput with per-field explanations.
+type InputError struct{ Fields []FieldError }
+
+func (e *InputError) Error() string { return "invalid input" }
+func (e *InputError) Unwrap() error { return ErrInvalidInput }
+
+func inputError(field, message string) error {
+	return &InputError{[]FieldError{{field, message}}}
+}
+
+const passwordRule = "Пароль должен быть не короче 15 символов."

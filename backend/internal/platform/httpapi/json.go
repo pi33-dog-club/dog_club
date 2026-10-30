@@ -28,7 +28,7 @@ func DecodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, maxBytes i
 	}
 	mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || mediaType != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) {
-		return NewProblem(http.StatusUnsupportedMediaType, "unsupported_media_type", "Ожидается Content-Type: application/json с кодировкой UTF-8.")
+		return NewProblem(http.StatusUnsupportedMediaType, "unsupported_media_type", "Не удалось прочитать отправленные данные. Обновите страницу и повторите.")
 	}
 	if r.Body == nil {
 		return invalidJSON()
@@ -62,7 +62,7 @@ func DecodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, maxBytes i
 }
 
 func invalidJSON() *Problem {
-	return NewProblem(http.StatusBadRequest, "invalid_json", "Ожидается один JSON-объект с известными полями и корректными типами значений.")
+	return NewProblem(http.StatusBadRequest, "invalid_json", "Не удалось прочитать отправленные данные. Обновите страницу и повторите.")
 }
 
 // WriteJSON encodes a DTO before sending headers so encoding failures can still
