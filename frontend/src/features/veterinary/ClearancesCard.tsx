@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate } from '../../shared/format';
 import { Button, Card, Chip, EmptyState, FormDialog, Loading, QueryError, ReasonDialog, SelectField, TextArea, TextField, fieldStyles, MAX_REASON } from '../../shared/ui';
@@ -187,6 +187,13 @@ export function ClearancesCard({ dogID, active }: { dogID: number; active: boole
         description="Заключение строится на вашем осмотре. Для «Допущена» выберите срок и прививки-основания, действовавшие на дату осмотра."
         confirmLabel="Сохранить"
         ready={ready}
+        check={() => {
+          const missing = localProblem({
+            vaccination_ids: draft?.decision === 'allowed' && draft.vaccination_ids.length === 0 ? 'Отметьте прививки, на которых основано разрешение.' : undefined,
+          });
+          setError(missing);
+          return !missing;
+        }}
         onReload={() => void saved()}
         onClose={() => {
           setDraft(null);
@@ -263,7 +270,7 @@ export function ClearancesCard({ dogID, active }: { dogID: number; active: boole
                         </li>
                       ))}
                   </ul>
-                  {errors.vaccination_ids && <span className={styles.error}>{errors.vaccination_ids}</span>}
+                  {errors.vaccination_ids && <span className={styles.error} role="alert">{errors.vaccination_ids}</span>}
                 </fieldset>
               </>
             )}

@@ -81,7 +81,6 @@ function EventCard({ event, onReload }: { event: Event; onReload: () => void }) 
         <Fact
           label="Классы"
           value={event.uses_classes ? pluralize(event.classes.filter((item) => item.enabled).length, 'класс', 'класса', 'классов') : 'Без классов'}
-          note={`Версия ${event.version}`}
         />
       </Facts>
       <Tabs

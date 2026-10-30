@@ -127,3 +127,34 @@ textarea.control {
   font-size: 18px;
   font-weight: 600;
 }
+
+.file {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  position: relative;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.fileInput:focus-visible + label {
+  box-shadow: var(--focus);
+}
+
+.fileInput[aria-invalid='true'] + label {
+  border-color: var(--pink-deep);
+}
+
+.fileName {
+  font-size: 14px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}

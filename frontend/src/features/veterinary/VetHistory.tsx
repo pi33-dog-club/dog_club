@@ -43,17 +43,12 @@ export function VetHistory({ dogID }: { dogID: number }) {
         <EmptyState title="Изменений пока нет" />
       ) : (
         <Timeline
-          entries={changes.map((change) => {
-            const after = change.after as { version?: number };
-            const before = change.before as { version?: number } | null;
-            return {
-              id: change.id,
-              title: changeTitle(change),
-              version: before?.version ? `версия ${before.version} → ${after.version}` : undefined,
-              meta: formatDateTime(change.changed_at),
-              reason: change.reason || undefined,
-            };
-          })}
+          entries={changes.map((change) => ({
+            id: change.id,
+            title: changeTitle(change),
+            meta: formatDateTime(change.changed_at),
+            reason: change.reason || undefined,
+          }))}
         />
       )}
       {history.hasNextPage && (

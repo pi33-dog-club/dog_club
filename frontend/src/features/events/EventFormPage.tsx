@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { fieldErrors } from '../../api/problem';
-import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextArea, TextField, fieldStyles, toOptions, MAX_REASON } from '../../shared/ui';
+import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextArea, TextField, fieldStyles, reportInvalid, toOptions, MAX_REASON } from '../../shared/ui';
 import { eventsApi, useEvent, useEventDictionaries, useEventsSaved, useVenues, type Event } from './eventsApi';
 import { audiences } from './labels';
 import { venueAddress } from './VenuesTab';
@@ -43,10 +43,13 @@ function EventForm({ event }: { event?: Event }) {
   const errors = fieldErrors(error);
   const zones = commonZones.includes(zone) ? commonZones : [zone, ...commonZones];
   const order = starts && ends && ends < starts ? 'Окончание раньше начала.' : undefined;
-  const ready = Boolean(name.trim() && typeID && venueID && starts && ends && !order && isZone(zone) && (!event || reason.trim()));
+  const classesError = audience === 'people' && usesClasses ? 'Классы собак не применяются, если участвуют только люди. Снимите отметку.' : errors.uses_classes;
+  const ready = Boolean(name.trim() && typeID && venueID && starts && ends && !order && !(audience === 'people' && usesClasses) && isZone(zone) && (!event || reason.trim()));
 
-  const submit = async (submitEvent: FormEvent) => {
+  const submit = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
+    // Every missing value and broken rule is already shown under its field.
+    if (!reportInvalid(submitEvent.currentTarget) || !ready) return;
     setBusy(true);
     setError(null);
     const body = {
@@ -74,7 +77,7 @@ function EventForm({ event }: { event?: Event }) {
     <>
       <PageHeader eyebrow="Мероприятия" title={event ? `Исправить: ${event.name}` : 'Новое мероприятие'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           {!event && <Alert tone="info">Мероприятие создаётся черновиком. Классы, расписание и экспертов добавите на его странице, затем откроете запись.</Alert>}
           {event?.legacy_starts_at && !event.starts_at && (
             <Alert tone="warning">В старых данных записано «{event.legacy_starts_at}» без часового пояса. Укажите точные начало и окончание по часам места проведения.</Alert>
@@ -139,6 +142,11 @@ function EventForm({ event }: { event?: Event }) {
             <input type="checkbox" checked={usesClasses} onChange={(change) => setUsesClasses(change.target.checked)} />
             Участие по классам
           </label>
+          {classesError && (
+            <p className={fieldStyles.error} role="alert">
+              {classesError}
+            </p>
+          )}
           <TextArea label="Описание" maxLength={4000} value={description} onChange={(change) => setDescription(change.target.value)} error={errors.description} />
           {event && (
             <TextArea
@@ -153,7 +161,7 @@ function EventForm({ event }: { event?: Event }) {
           )}
           {error ? <ProblemAlert error={error} /> : null}
           <div className={styles.actions}>
-            <Button type="submit" variant="save" busy={busy} disabled={!ready}>
+            <Button type="submit" variant="save" busy={busy}>
               {event ? 'Сохранить' : 'Создать черновик'}
             </Button>
             <Link to={event ? `/events/${event.id}` : '/events'}>Отмена</Link>

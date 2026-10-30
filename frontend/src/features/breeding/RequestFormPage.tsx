@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { formatDate } from '../../shared/format';
-import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, TextArea, TextField, fieldStyles, MAX_REASON } from '../../shared/ui';
+import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, TextArea, TextField, fieldStyles, reportInvalid, MAX_REASON } from '../../shared/ui';
 import { DogPicker } from '../dogs/DogPicker';
 import { useDogDictionaries } from '../dogs/dogsApi';
 import { breedingApi, useBreedingSaved, useRequest, type BreedingRequest } from './breedingApi';
@@ -39,9 +39,12 @@ function RequestForm({ request, female: initialFemale, male: initialMale }: { re
   const errors = fieldErrors(error);
   const ready = Boolean(female && male && planned && (!request || reason.trim()));
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!female || !male) return;
+    const valid = reportInvalid(event.currentTarget);
+    const missing = localProblem({ female_dog_id: female ? undefined : 'Выберите суку.', male_dog_id: male ? undefined : 'Выберите кобеля.' });
+    setError(missing);
+    if (!valid || missing || !ready || !female || !male) return;
     setBusy(true);
     setError(null);
     const body = { female_dog_id: female, male_dog_id: male, planned_date: planned, expected_birth_date: expected || null, comment: comment.trim() };
@@ -78,7 +81,7 @@ function RequestForm({ request, female: initialFemale, male: initialMale }: { re
     <>
       <PageHeader eyebrow="Племенная работа" title={request ? `Исправить заявку ${request.id}` : 'Новая заявка'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           {request && <Alert tone="info">После исправления заявка вернётся к эксперту: прежние решения останутся в истории.</Alert>}
           {parent('Сука', female, setFemale, 'Сука', errors.female_dog_id)}
           {parent('Кобель', male, setMale, 'Кобель', errors.male_dog_id)}
@@ -109,7 +112,7 @@ function RequestForm({ request, female: initialFemale, male: initialMale }: { re
           <p className={styles.note}>Совместимость пары проверяется после сохранения: родство, допуск, порода, интервал между помётами.</p>
           {error ? <ProblemAlert error={error} /> : null}
           <div className={styles.actions}>
-            <Button type="submit" variant="save" busy={busy} disabled={!ready}>
+            <Button type="submit" variant="save" busy={busy}>
               {request ? 'Сохранить' : 'Подать заявку'}
             </Button>
             <Link to={request ? `/breeding/requests/${request.id}` : '/breeding'}>Отмена</Link>

@@ -12,6 +12,7 @@ import {
   EmptyState,
   Fact,
   Facts,
+  FileField,
   Loading,
   PageHeader,
   ProblemAlert,
@@ -19,7 +20,6 @@ import {
   ReasonDialog,
   SelectField,
   Table,
-  TextField,
   Timeline,
   tableStyles,
 } from '../../shared/ui';
@@ -79,7 +79,6 @@ function DocumentCard({ document, onReload }: { document: Document; onReload: ()
         <Fact
           label="Получатель"
           value={document.recipient_member_id ? <DocMemberName id={document.recipient_member_id} /> : 'Клубный экземпляр'}
-          note={`Версия ${document.version}`}
         />
       </Facts>
 
@@ -203,7 +202,7 @@ function FilesTable({ files }: { files: DocumentFile[] }) {
 export function uploadProblem(file: File | null): string | undefined {
   if (!file) return undefined;
   if (!uploadTypes[file.type]) return 'Подойдёт PDF, JPEG или PNG.';
-  if (file.size > MAX_UPLOAD) return 'Файл больше 10 МиБ.';
+  if (file.size > MAX_UPLOAD) return 'Файл больше 10 МБ.';
   if (file.size === 0) return 'Файл пустой.';
   return undefined;
 }
@@ -211,17 +210,22 @@ export function uploadProblem(file: File | null): string | undefined {
 function UploadDialog({ document, open, onClose, onReload }: { document: Document; open: boolean; onClose: () => void; onReload: () => void }) {
   const saved = useDocumentsSaved();
   const [file, setFile] = useState<File | null>(null);
+  const [tried, setTried] = useState(false);
   const problem = uploadProblem(file);
   return (
     <ReasonDialog
       open={open}
       title="Загрузить копию"
-      description="Скан или фото документа: PDF, JPEG или PNG до 10 МиБ."
+      description="Скан или фото документа: PDF, JPEG или PNG до 10 МБ."
       confirmLabel="Загрузить"
-      ready={Boolean(file && !problem)}
+      check={() => {
+        setTried(true);
+        return Boolean(file && !problem);
+      }}
       onReload={onReload}
       onClose={() => {
         setFile(null);
+        setTried(false);
         onClose();
       }}
       onConfirm={async (reason) => {
@@ -230,13 +234,13 @@ function UploadDialog({ document, open, onClose, onReload }: { document: Documen
         setFile(null);
       }}
     >
-      <TextField
+      <FileField
         label="Файл"
-        type="file"
+        file={file}
         accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
         required
         onChange={(change) => setFile(change.target.files?.[0] ?? null)}
-        error={problem}
+        error={problem ?? (tried && !file ? 'Выберите файл.' : undefined)}
       />
     </ReasonDialog>
   );
@@ -340,7 +344,7 @@ function DocumentHistory({ id }: { id: number }) {
           entries={changes.map((change) => ({
             id: change.id,
             title: historyActions[change.action] ?? 'Запись изменена',
-            meta: `${formatDateTime(change.changed_at)} · версия ${change.version}`,
+            meta: formatDateTime(change.changed_at),
             reason: change.reason || undefined,
           }))}
         />

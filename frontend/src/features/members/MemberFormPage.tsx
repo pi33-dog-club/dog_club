@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { fieldErrors } from '../../api/problem';
 import { todayUTC } from '../../shared/format';
-import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextField, fieldStyles, toOptions } from '../../shared/ui';
+import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextField, fieldStyles, reportInvalid, toOptions } from '../../shared/ui';
 import { memberKeys, membersApi, useMember, useMemberDictionaries, useMemberSaved, type Member, type MemberPatchInput } from './membersApi';
 import styles from './members.module.css';
 
@@ -36,14 +36,18 @@ function MemberForm({ member }: { member?: Member }) {
   const errors = { ...fieldErrors(error), ...local };
   const today = todayUTC();
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Browser checks report through onInvalid; the form's own checks are added on top.
+    setLocal({});
+    const valid = reportInvalid(event.currentTarget);
     const problems: Record<string, string> = {};
-    if (birth && (birth < '1900-01-01' || birth > today)) problems.date_of_birth = 'Укажите дату рождения с 01.01.1900 по сегодня.';
+    if (birth > today) problems.date_of_birth = 'Дата рождения не может быть в будущем.';
+    else if (birth && birth < '1900-01-01') problems.date_of_birth = 'Укажите существующую дату рождения с 01.01.1900 по сегодня.';
     if (since && birth && since < birth) problems.membership_date = 'Дата вступления не может быть раньше даты рождения.';
-    setLocal(problems);
+    setLocal((current) => ({ ...current, ...problems }));
     setError(null);
-    if (Object.keys(problems).length > 0) return;
+    if (!valid || Object.keys(problems).length > 0) return;
     setBusy(true);
     setUnchanged(false);
     try {
@@ -75,7 +79,7 @@ function MemberForm({ member }: { member?: Member }) {
     <>
       <PageHeader eyebrow={member ? `Члены клуба / ${member.full_name}` : 'Члены клуба'} title={member ? 'Изменить карточку' : 'Новый член клуба'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           <TextField label="ФИО" required maxLength={150} autoComplete="off" value={fullName} onChange={(event) => setFullName(event.target.value)} error={errors.full_name} />
           <div className={fieldStyles.row}>
             <TextField

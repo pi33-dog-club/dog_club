@@ -1,10 +1,11 @@
 import { UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import type { Role } from '../../api/session';
 import { roleLabels } from '../../app/navigation';
 import { formatDate } from '../../shared/format';
+import { badEmail, loginPattern, loginRule } from '../../shared/rules';
 import {
   Ball,
   Button,
@@ -106,7 +107,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [member, setMember] = useState('');
   const [error, setError] = useState<unknown>(null);
   const errors = fieldErrors(error);
-  const badMember = member.trim() !== '' && !/^[1-9]\d{0,9}$/.test(member.trim());
+  const badMember = member.trim() !== '' && !/^[1-9]\d{0,8}$/.test(member.trim());
   const close = () => {
     setLogin('');
     setEmail('');
@@ -121,11 +122,23 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
       title="Пригласить пользователя"
       description="На email уйдёт одноразовый код, он действует 48 часов. Пароль пользователь придумает сам."
       confirmLabel="Пригласить"
-      ready={Boolean(login.trim() && email.trim() && !badMember)}
+      ready={!badMember}
+      check={() => {
+        const name = login.trim().toLowerCase();
+        const address = email.trim().toLowerCase();
+        const problem = localProblem({
+          login: name && !loginPattern.test(name) ? loginRule : undefined,
+          email: address && badEmail(address) ? 'Укажите email в виде name@example.ru, не больше 254 символов.' : undefined,
+        });
+        setError(problem);
+        return !problem;
+      }}
       onClose={close}
       onSubmit={async () => {
         try {
-          const invitation = await adminApi.invite({ login: login.trim(), email: email.trim(), role, club_member_id: member.trim() ? Number(member) : undefined });
+          const name = login.trim().toLowerCase();
+          const address = email.trim().toLowerCase();
+          const invitation = await adminApi.invite({ login: name, email: address, role, club_member_id: member.trim() ? Number(member) : undefined });
           await saved();
           navigate(`/admin/users/${invitation.user_id}`);
         } catch (failure) {
@@ -135,8 +148,8 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
       }}
     >
       <div className={fieldStyles.row}>
-        <TextField label="Логин" required autoComplete="off" value={login} onChange={(event) => setLogin(event.target.value)} error={errors.login} />
-        <TextField label="Email" type="email" required autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} error={errors.email} />
+        <TextField label="Логин" required maxLength={64} autoComplete="off" value={login} onChange={(event) => setLogin(event.target.value)} error={errors.login} hint="Латиница в нижнем регистре, цифры, точка, дефис, подчёркивание; от 3 символов." />
+        <TextField label="Email" type="email" required maxLength={254} autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} error={errors.email} />
       </div>
       <SelectField
         label="Первый профиль"
@@ -151,7 +164,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
         inputMode="numeric"
         value={member}
         onChange={(event) => setMember(event.target.value)}
-        error={badMember ? 'Номер карточки — целое число.' : errors.club_member_id}
+        error={badMember ? 'Номер карточки — целое число от 1.' : errors.club_member_id}
         hint="Необязательно. Номер карточки подскажет сотрудник клуба."
       />
     </FormDialog>

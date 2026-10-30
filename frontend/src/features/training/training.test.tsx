@@ -84,10 +84,9 @@ describe('training', () => {
     await userEvent.selectOptions(screen.getByLabelText('Часовой пояс'), 'Asia/Barnaul');
     await userEvent.type(screen.getByLabelText('Начало'), '2026-10-16T10:00');
     await userEvent.type(screen.getByLabelText('Окончание'), '2026-10-16T11:00');
-    expect((screen.getByRole('button', { name: 'Внести занятие' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Результат') as HTMLTextAreaElement).required).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Внести занятие' }));
+    expect(screen.getByText('Заполните поле «Результат».')).toBeTruthy();
     await userEvent.type(screen.getByLabelText('Результат'), 'Отработаны команды послушания');
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Внести занятие' }) as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(screen.getByRole('button', { name: 'Внести занятие' }));
     await waitFor(() => expect(router.state.location.pathname).toBe('/training/7/4'));
     const body = await calls.find((call) => call.method === 'POST' && call.url.endsWith('/training-sessions'))!.json();
@@ -103,7 +102,7 @@ describe('training', () => {
   });
 
   it('closes new sessions for a dog that is not on the register', async () => {
-    mockFetch({
+    const { calls } = mockFetch({
       'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
       'GET /api/v1/training-types': () => json(types),
       'GET /api/v1/training-instructors': () => json({ records: [grant], next_after: null }),
@@ -112,7 +111,8 @@ describe('training', () => {
     });
     renderApp('/training/new?dog=7');
     expect(await screen.findByText(/Собака не на учёте/)).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Внести занятие' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Внести занятие' }));
+    expect(calls.some((call) => call.method === 'POST' && call.url.includes('/training-sessions'))).toBe(false);
   });
 
   it('shows an owner the medical check then and now, without corrections', async () => {

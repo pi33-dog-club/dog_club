@@ -166,6 +166,7 @@ function InvitationCard({ user, ask }: { user: User; ask: (confirm: Confirm) => 
 function ProfilesCard({ user, ask }: { user: User; ask: (confirm: Confirm) => void }) {
   const profiles = useUserProfiles(user.id);
   const [role, setRole] = useState('');
+  const [roleMissing, setRoleMissing] = useState(false);
   const taken = new Set(profiles.data?.profiles.map((profile) => profile.role));
   const free = roleOptions.filter((option) => !taken.has(option.value));
   return (
@@ -215,12 +216,21 @@ function ProfilesCard({ user, ask }: { user: User; ask: (confirm: Confirm) => vo
           </Table>
           {free.length > 0 && (
             <div className={styles.addRow}>
-              <SelectField label="Новый профиль" placeholder="Выберите роль…" options={free} value={role} onChange={(event) => setRole(event.target.value)} />
+              <SelectField
+                label="Новый профиль"
+                placeholder="Выберите роль…"
+                options={free}
+                value={role}
+                onChange={(event) => {
+                  setRole(event.target.value);
+                  setRoleMissing(false);
+                }}
+                error={roleMissing ? 'Выберите роль нового профиля.' : undefined}
+              />
               <Button
                 variant="secondary"
-                disabled={!role}
                 onClick={() =>
-                  ask({
+                  !role ? setRoleMissing(true) : ask({
                     title: 'Добавить профиль',
                     description: `Пользователь сможет выбрать профиль «${roleLabels[role as Role]}» при входе или в меню аккаунта.`,
                     label: 'Добавить',
@@ -245,7 +255,7 @@ function ProfilesCard({ user, ask }: { user: User; ask: (confirm: Confirm) => vo
 function BindDialog({ user, open, onClose }: { user: User; open: boolean; onClose: () => void }) {
   const saved = useAdminSaved();
   const [member, setMember] = useState('');
-  const bad = member.trim() !== '' && !/^[1-9]\d{0,9}$/.test(member.trim());
+  const bad = member.trim() !== '' && !/^[1-9]\d{0,8}$/.test(member.trim());
   return (
     <FormDialog
       open={open}
@@ -268,7 +278,7 @@ function BindDialog({ user, open, onClose }: { user: User; open: boolean; onClos
         required
         value={member}
         onChange={(event) => setMember(event.target.value)}
-        error={bad ? 'Номер карточки — целое число.' : undefined}
+        error={bad ? 'Номер карточки — целое число от 1.' : undefined}
         hint="Номер карточки подскажет сотрудник клуба."
       />
     </FormDialog>

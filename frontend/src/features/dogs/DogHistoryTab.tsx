@@ -61,7 +61,6 @@ export function DogHistoryTab({ dogID }: { dogID: number }) {
             return {
               id: change.id,
               title: actions[change.action] ?? 'Запись изменена',
-              version: change.before ? `версия ${change.before.version} → ${change.after.version}` : `версия ${change.after.version}`,
               details: changed.length > 0 && change.action === 'dog_updated' ? `Изменено: ${changed.join(', ')}` : undefined,
               meta: `${actorLabel(change.actor_role)} · ${formatDateTime(change.changed_at)}`,
               reason: change.reason || undefined,

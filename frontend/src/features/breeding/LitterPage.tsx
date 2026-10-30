@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, pluralize, todayUTC } from '../../shared/format';
 import {
@@ -127,7 +127,7 @@ function LitterCard({ litter, onReload }: { litter: Litter; onReload: () => void
           value={litter.previous_birth_date ? formatDate(litter.previous_birth_date) : 'Неизвестен'}
           note={litter.interval_days !== null ? `интервал ${pluralize(litter.interval_days, 'день', 'дня', 'дней')}` : undefined}
         />
-        <Fact label="Вязка" value={<Link to={`/breeding/matings/${litter.breeding_id}`}>Вязка {litter.breeding_id}</Link>} note={`Версия помёта ${litter.version}`} />
+        <Fact label="Вязка" value={<Link to={`/breeding/matings/${litter.breeding_id}`}>Вязка {litter.breeding_id}</Link>} />
       </Facts>
       {litter.interval_violation && <Alert tone="warning">Между рождениями помётов меньше 365 дней. Помёт сохранён как факт, правило клуба нарушено.</Alert>}
 
@@ -225,6 +225,11 @@ function LitterCard({ litter, onReload }: { litter: Litter; onReload: () => void
             puppy.owners.length > 0 &&
             puppy.reason.trim(),
         )}
+        check={() => {
+          const missing = localProblem({ owner_ids: puppy.owners.length === 0 ? 'Выберите хотя бы одного владельца.' : undefined });
+          setError(missing);
+          return !missing;
+        }}
         onReload={onReload}
         onClose={close}
         onSubmit={() =>
@@ -306,6 +311,11 @@ function LitterCard({ litter, onReload }: { litter: Litter; onReload: () => void
         description="Дата рождения и порода собаки должны совпасть с помётом. Пустые сведения о родителях заполнятся из помёта."
         confirmLabel="Связать"
         ready={Boolean(linked && linkReason.trim())}
+        check={() => {
+          const missing = localProblem({ dog_id: linked ? undefined : 'Выберите собаку.' });
+          setError(missing);
+          return !missing;
+        }}
         onReload={onReload}
         onClose={close}
         onSubmit={async () => {

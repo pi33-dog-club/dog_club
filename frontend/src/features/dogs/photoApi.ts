@@ -18,7 +18,7 @@ export const MAX_PHOTO = 5 * 1024 * 1024;
 export function photoProblem(file: File | null): string | undefined {
   if (!file) return undefined;
   if (!photoTypes.includes(file.type)) return 'Подойдёт JPEG или PNG.';
-  if (file.size > MAX_PHOTO) return 'Фото больше 5 МиБ.';
+  if (file.size > MAX_PHOTO) return 'Фото больше 5 МБ.';
   if (file.size === 0) return 'Файл пустой.';
   return undefined;
 }

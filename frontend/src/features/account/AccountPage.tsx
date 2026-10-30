@@ -4,7 +4,7 @@ import { fieldErrors } from '../../api/problem';
 import { roleLabels } from '../../app/navigation';
 import { useAuth, useSession } from '../../auth/AuthProvider';
 import { changePassword, endLocalSession } from '../../auth/authApi';
-import { Button, Card, MIN_PASSWORD, PageHeader, PasswordField, ProblemAlert, passwordLength } from '../../shared/ui';
+import { Button, Card, PageHeader, PasswordField, ProblemAlert, reportInvalid } from '../../shared/ui';
 import type { LoginNotice } from '../auth/LoginPage';
 import styles from './AccountPage.module.css';
 
@@ -18,8 +18,9 @@ export function AccountPage() {
   const [error, setError] = useState<unknown>(null);
   const fields = fieldErrors(error);
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!reportInvalid(event.currentTarget)) return;
     setBusy(true);
     setError(null);
     try {
@@ -52,12 +53,12 @@ export function AccountPage() {
           </Button>
         </Card>
         <Card heading="Смена пароля">
-          <form className={styles.form} onSubmit={submit}>
+          <form className={styles.form} noValidate onSubmit={submit}>
             <PasswordField label="Текущий пароль" autoComplete="current-password" required value={current} onChange={(event) => setCurrent(event.target.value)} error={fields.current_password} />
             <PasswordField label="Новый пароль" meter autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} error={fields.password} />
             {error ? <ProblemAlert error={error} /> : null}
             <p className={styles.note}>После смены пароля завершатся все сессии, включая эту.</p>
-            <Button type="submit" variant="save" className={styles.action} busy={busy} disabled={!current || passwordLength(password) < MIN_PASSWORD}>
+            <Button type="submit" variant="save" className={styles.action} busy={busy}>
               Сменить пароль
             </Button>
           </form>

@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { fieldErrors } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate } from '../../shared/format';
-import { Alert, Button, Card, Chip, ProblemAlert, Tabs, TextField, fieldStyles, tabPanelProps } from '../../shared/ui';
+import { Alert, Button, Card, Chip, ProblemAlert, Tabs, TextField, fieldStyles, reportInvalid, tabPanelProps } from '../../shared/ui';
 import clsx from '../../shared/ui/clsx';
 import { DogPicker } from './DogPicker';
 import { dogsApi, useDog, useDogDictionaries, useDogSaved, type Dog, type DogParent, type DogParentInput } from './dogsApi';
@@ -129,7 +129,7 @@ type Mode = 'none' | 'club' | 'external';
 
 interface ParentDraft {
   mode: Mode;
-  dog: { id: number; nickname: string; note: string } | null;
+  dog: { id: number; nickname: string; note: string; birth: string } | null;
   nickname: string;
   pedigree_number: string;
   issuer: string;
@@ -138,7 +138,7 @@ interface ParentDraft {
 function draftOf(parent: DogParent | null): ParentDraft {
   const draft: ParentDraft = { mode: 'none', dog: null, nickname: '', pedigree_number: '', issuer: '' };
   if (parent?.dog)
-    return { ...draft, mode: 'club', dog: { id: parent.dog.id, nickname: parent.dog.nickname, note: `${parent.dog.breed.name} · ${formatDate(parent.dog.date_of_birth)}` } };
+    return { ...draft, mode: 'club', dog: { id: parent.dog.id, nickname: parent.dog.nickname, note: `${parent.dog.breed.name} · ${formatDate(parent.dog.date_of_birth)}`, birth: parent.dog.date_of_birth } };
   if (parent?.external) return { ...draft, mode: 'external', ...parent.external };
   return draft;
 }
@@ -169,19 +169,25 @@ function PedigreeForm({ dog, onDone, onReload }: { dog: Dog; onDone: () => void;
   const [local, setLocal] = useState<Record<string, string>>({});
   const errors = { ...fieldErrors(error), ...local };
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Browser checks report through onInvalid; the form's own checks are added on top.
+    setLocal({});
+    const valid = reportInvalid(event.currentTarget);
     const problems: Record<string, string> = {};
     for (const [key, draft] of [
       ['mother', mother],
       ['father', father],
     ] as const) {
       if (draft.mode === 'club' && !draft.dog) problems[key] = 'Выберите собаку клуба или другой вариант.';
+      if (draft.mode === 'club' && draft.dog && draft.dog.birth >= dog.date_of_birth) {
+        problems[key] = `${draft.dog.nickname} — ${key === 'mother' ? 'родилась' : 'родился'} ${formatDate(draft.dog.birth)}, не раньше этой собаки (${formatDate(dog.date_of_birth)}). Родитель должен быть старше.`;
+      }
       if (draft.mode === 'external' && !draft.nickname.trim() && !draft.pedigree_number.trim()) problems[key] = 'Укажите кличку или номер родословной.';
     }
     if (Boolean(number.trim()) !== Boolean(issuer.trim())) problems[number.trim() ? 'issuer' : 'number'] = 'Номер и организация заполняются вместе.';
-    setLocal(problems);
-    if (Object.keys(problems).length > 0) return;
+    setLocal((current) => ({ ...current, ...problems }));
+    if (!valid || Object.keys(problems).length > 0) return;
     setBusy(true);
     setError(null);
     try {
@@ -202,7 +208,7 @@ function PedigreeForm({ dog, onDone, onReload }: { dog: Dog; onDone: () => void;
 
   return (
     <Card heading="Родословная">
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} noValidate onSubmit={submit}>
         <fieldset className={fieldStyles.fieldset}>
           <legend className={fieldStyles.legend}>Документ родословной</legend>
           <div className={fieldStyles.row}>
@@ -224,6 +230,7 @@ function PedigreeForm({ dog, onDone, onReload }: { dog: Dog; onDone: () => void;
           onChange={setMother}
           sexID={sexID('Сука')}
           excludeID={dog.id}
+          bornBefore={dog.date_of_birth}
           error={errors.mother ?? errors['mother.dog_id']}
         />
         <ParentEditor
@@ -233,6 +240,7 @@ function PedigreeForm({ dog, onDone, onReload }: { dog: Dog; onDone: () => void;
           onChange={setFather}
           sexID={sexID('Кобель')}
           excludeID={dog.id}
+          bornBefore={dog.date_of_birth}
           error={errors.father ?? errors['father.dog_id']}
         />
         <p className={styles.note}>Сервер проверит пол и возраст родителей и отсутствие циклов в родословной.</p>
@@ -263,10 +271,11 @@ interface ParentEditorProps {
   onChange: (draft: ParentDraft) => void;
   sexID?: number;
   excludeID: number;
+  bornBefore: string;
   error?: string;
 }
 
-function ParentEditor({ legend, idPrefix, draft, onChange, sexID, excludeID, error }: ParentEditorProps) {
+function ParentEditor({ legend, idPrefix, draft, onChange, sexID, excludeID, bornBefore, error }: ParentEditorProps) {
   const set = (patch: Partial<ParentDraft>) => onChange({ ...draft, ...patch });
   return (
     <fieldset className={fieldStyles.fieldset}>
@@ -289,7 +298,8 @@ function ParentEditor({ legend, idPrefix, draft, onChange, sexID, excludeID, err
               label={`Найти: ${legend.toLowerCase()}`}
               sexID={sexID}
               excludeID={excludeID}
-              onPick={(dog) => set({ dog: { id: dog.id, nickname: dog.nickname, note: `${dog.breed.name} · ${formatDate(dog.date_of_birth)}` } })}
+              bornBefore={bornBefore}
+              onPick={(dog) => set({ dog: { id: dog.id, nickname: dog.nickname, note: `${dog.breed.name} · ${formatDate(dog.date_of_birth)}`, birth: dog.date_of_birth } })}
             />
           ))}
         {draft.mode === 'external' && (
@@ -300,7 +310,11 @@ function ParentEditor({ legend, idPrefix, draft, onChange, sexID, excludeID, err
           </div>
         )}
       </div>
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && (
+        <div data-field-error>
+          <Alert tone="error">{error}</Alert>
+        </div>
+      )}
     </fieldset>
   );
 }

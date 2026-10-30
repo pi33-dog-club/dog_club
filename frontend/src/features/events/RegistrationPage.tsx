@@ -45,7 +45,7 @@ function RegistrationCard({ event, registration, onReload }: { event: Event; reg
         <Fact label={registration.dog ? 'Представитель' : 'Участник'} value={registration.participant?.full_name ?? '—'} />
         {registration.dog && <Fact label="Собака" value={registration.dog.nickname} note={`${registration.dog.breed.name} · ${registration.dog.sex.name}`} />}
         {event.uses_classes && <Fact label="Класс" value={klass?.name ?? '—'} note={klass?.requirements || undefined} />}
-        <Fact label="Время" value={slotText(event, registration)} note={`Версия записи ${registration.version}`} />
+        <Fact label="Время" value={slotText(event, registration)} />
       </Facts>
       {attended && registration.attendance ? (
         <EligibilityPanel

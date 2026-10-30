@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, todayUTC } from '../../shared/format';
 import {
@@ -16,6 +16,7 @@ import {
   TextArea,
   TextField,
   fieldStyles,
+  reportInvalid,
   toOptions,
   MAX_REASON,
 } from '../../shared/ui';
@@ -102,9 +103,19 @@ function DocumentForm({ document, initial }: { document?: Document; initial: { d
         : Boolean(eventID) && (!diploma || (resultID && dogID && recipient));
   const ready = Boolean(type && subjectReady && !datesBad && (!document || reason.trim()));
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!type) return;
+    const valid = reportInvalid(event.currentTarget);
+    // Without a type the subject fields are not shown yet: the type's own message is enough.
+    const missing = localProblem(
+      !type
+        ? {}
+        : kind === 'member'
+          ? { member_id: member.length > 0 ? undefined : 'Выберите члена клуба.' }
+          : { dog_id: dogID || (kind === 'event' && !diploma) ? undefined : 'Выберите собаку.' },
+    );
+    setError(missing);
+    if (!valid || missing || !ready || !type) return;
     setBusy(true);
     setError(null);
     const body = {
@@ -135,7 +146,7 @@ function DocumentForm({ document, initial }: { document?: Document; initial: { d
     <>
       <PageHeader eyebrow={vet ? 'Медицинские документы' : 'Документы'} title={document ? `Исправить: ${document.type_name}` : 'Новый документ'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           {!document && <Alert tone="info">Сначала сохраняется запись реестра. PDF-форму или скан копии добавите в карточке документа.</Alert>}
           {locked && <Alert tone="info">К документу уже приложен файл: тип, предмет и получателя менять нельзя.</Alert>}
           <SelectField
@@ -272,7 +283,7 @@ function DocumentForm({ document, initial }: { document?: Document; initial: { d
           )}
           {error ? <ProblemAlert error={error} /> : null}
           <div className={styles.actions}>
-            <Button type="submit" variant="save" busy={busy} disabled={!ready}>
+            <Button type="submit" variant="save" busy={busy}>
               {document ? 'Сохранить' : 'Создать запись'}
             </Button>
             <Link to={document ? `/documents/${document.id}` : '/documents'}>Отмена</Link>

@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../api/problem';
 import { ProblemAlert } from './Alert';
-import { TextField, passwordLength } from './Field';
+import { FileField, TextField, passwordLength } from './Field';
 import { SelectField } from './Select';
 import { FormDialog, ReasonDialog } from './ReasonDialog';
 
@@ -20,9 +21,12 @@ describe('ReasonDialog', () => {
     const onClose = vi.fn();
     render(<ReasonDialog open title="Отметить ошибочной" confirmLabel="Отметить" onConfirm={onConfirm} onClose={onClose} />);
     const confirm = screen.getByRole('button', { name: 'Отметить' });
-    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(confirm);
+    expect(screen.getByText('Заполните поле «Причина».')).toBeTruthy();
     await userEvent.type(screen.getByLabelText('Причина'), '   ');
-    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(confirm);
+    expect(screen.getByText('Заполните поле «Причина»: одних пробелов недостаточно.')).toBeTruthy();
+    expect(onConfirm).not.toHaveBeenCalled();
     await userEvent.type(screen.getByLabelText('Причина'), 'Ошибочная запись ');
     await userEvent.click(confirm);
     expect(onConfirm).toHaveBeenCalledWith('Ошибочная запись');
@@ -32,20 +36,50 @@ describe('ReasonDialog', () => {
 
 
 describe('form error visibility', () => {
-  it('shows grouped server errors in a dialog without an inline field mapping', async () => {
+  it('lists server field errors in a dialog and shows no technical details', async () => {
     const error = new ApiError(422, {
       type: 'about:blank', title: 'Unprocessable Entity', status: 422,
-      code: 'validation_failed', detail: 'Проверьте значения полей.', request_id: 'support-id',
-      errors: [{ field: 'fields', code: 'invalid', message: 'Укажите название площадки и населённый пункт.' }],
+      code: 'validation_failed', detail: 'Исправьте ошибки в форме.', request_id: 'support-id',
+      errors: [{ field: 'checks', code: 'invalid', message: 'Сначала устраните автоматические причины недопуска.' }],
     });
-    render(<FormDialog open title="Площадка" confirmLabel="Сохранить" onClose={() => undefined} onSubmit={async () => { throw error; }} />);
+    render(<FormDialog open title="Решение" confirmLabel="Сохранить" onClose={() => undefined} onSubmit={async () => { throw error; }} />);
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-    expect(await screen.findByText('Укажите название площадки и населённый пункт.')).toBeTruthy();
-    const details = screen.getByText('Технические сведения').closest('details')!;
-    expect(details.open).toBe(false);
-    await userEvent.click(screen.getByText('Технические сведения'));
-    expect(details.open).toBe(true);
-    expect(details.textContent).toContain('support-id');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('Исправьте ошибки в форме.');
+    expect(alert.textContent).toContain('Сначала устраните автоматические причины недопуска.');
+    for (const technical of ['support-id', 'validation_failed', 'Технические сведения']) expect(alert.textContent).not.toContain(technical);
+  });
+
+  it('replaces the browser popup with a message under the field and focuses the first error', async () => {
+    const popups: boolean[] = [];
+    render(
+      <form onSubmit={(event) => event.preventDefault()}>
+        <TextField label="Кличка" required />
+        <TextField label="Число щенков" type="number" min={1} max={2147483647} defaultValue="3000000000" />
+        <button type="submit">Сохранить</button>
+      </form>,
+    );
+    for (const input of screen.getAllByRole('textbox').concat(screen.getAllByRole('spinbutton'))) {
+      input.addEventListener('invalid', (event) => popups.push(!event.defaultPrevented));
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(popups.length).toBeGreaterThan(0);
+    expect(popups.every((shown) => !shown)).toBe(true);
+    expect(document.activeElement).toBe(screen.getByLabelText(/Кличка/));
+    expect(screen.getByText('Заполните поле «Кличка».')).toBeTruthy();
+    expect(screen.getByText('Слишком большое число.')).toBeTruthy();
+  });
+
+  it('picks a file with a Russian button and shows its name', async () => {
+    function Picker() {
+      const [file, setFile] = useState<File | null>(null);
+      return <FileField label="Фото" file={file} onChange={(event) => setFile(event.target.files?.[0] ?? null)} />;
+    }
+    render(<Picker />);
+    expect(screen.getByText('Выбрать файл')).toBeTruthy();
+    expect(screen.getByText('Файл не выбран')).toBeTruthy();
+    await userEvent.upload(screen.getByLabelText('Фото'), new File(['x'], 'rex.png', { type: 'image/png' }));
+    expect(screen.getByText('rex.png')).toBeTruthy();
   });
 
   it('preserves the actual conflict reason and offers reload', () => {
@@ -71,9 +105,9 @@ describe('form error visibility', () => {
   });
 
   it.each([
-    ['date', '1899-12-31', '1900-01-01', undefined, '«Значение»: значение должно быть не меньше 01.01.1900.'],
+    ['date', '1899-12-31', '1900-01-01', undefined, 'Дата не может быть раньше 01.01.1900.'],
     ['number', '1.5', '0', undefined, 'Укажите целое число.'],
-    ['number', '201', undefined, '200', '«Значение»: значение должно быть не больше 200.'],
+    ['number', '201', undefined, '200', 'Укажите число не больше 200.'],
     ['email', 'wrong', undefined, undefined, 'Укажите email в формате name@example.ru.'],
   ])('explains native %s constraints inline', async (type, value, min, max, message) => {
     render(<form><TextField label="Значение" type={type} min={min} max={max} step={1} defaultValue={value} /><button type="submit">Сохранить</button></form>);

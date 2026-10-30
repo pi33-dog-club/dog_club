@@ -52,6 +52,8 @@ function bodyOf(draft: Draft) {
 }
 
 const positive = (value: string) => /^\d+$/.test(value) && Number(value) > 0;
+// The server caps a period at 100 years.
+const maxPeriod: Record<Period['unit'], number> = { days: 36500, months: 1200 };
 
 /** Shared vaccine dictionary: periods are set from confirmed data on the product. */
 export function VaccinesPage() {
@@ -79,7 +81,8 @@ export function VaccinesPage() {
     setEditing(null);
     setError(null);
   };
-  const ready = (draft: Draft | undefined) => Boolean(draft?.name.trim() && positive(draft.validity.value) && positive(draft.revaccination.value));
+  const fits = (period: Draft['validity']) => positive(period.value) && Number(period.value) <= maxPeriod[period.unit];
+  const ready = (draft: Draft | undefined) => Boolean(draft?.name.trim() && fits(draft.validity) && fits(draft.revaccination));
 
   return (
     <>
@@ -175,12 +178,11 @@ function VaccineFields({ draft, onChange, error }: { draft: Draft; onChange: (dr
         inputMode="numeric"
         type="number"
         min={1}
-        max={2147483647}
         step={1}
         required
         value={draft[key].value}
         onChange={(event) => onChange({ ...draft, [key]: { ...draft[key], value: event.target.value } })}
-        error={draft[key].value && (!positive(draft[key].value) || Number(draft[key].value) > 2147483647) ? 'Укажите целое число от 1 до 2147483647.' : errors[`${key}.value`] ?? errors[key]}
+        error={draft[key].value && (!positive(draft[key].value) || Number(draft[key].value) > maxPeriod[draft[key].unit]) ? `Укажите целое число от 1 до ${draft[key].unit === 'days' ? '36 500 дней' : '1200 месяцев'}.` : errors[`${key}.value`] ?? errors[key]}
       />
       <SelectField
         label="Единица"

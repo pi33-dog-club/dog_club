@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { pluralize } from '../../shared/format';
 import { Button, Card, Loading, ProblemAlert, Table } from '../../shared/ui';
@@ -40,8 +41,10 @@ function OwnersList({ dog, onReload }: { dog: Dog; onReload: () => void }) {
     setEditing(true);
   };
   const save = async () => {
+    const missing = localProblem({ owner_ids: draft.length === 0 ? 'Оставьте хотя бы одного владельца.' : undefined });
+    setError(missing);
+    if (missing) return;
     setBusy(true);
-    setError(null);
     try {
       saved(
         await dogsApi.setOwners(
@@ -73,11 +76,11 @@ function OwnersList({ dog, onReload }: { dog: Dog; onReload: () => void }) {
     >
       {editing ? (
         <>
-          <MemberPicker label="Добавить владельца" value={draft} onChange={setDraft} />
+          <MemberPicker label="Добавить владельца" value={draft} onChange={setDraft} error={fieldErrors(error).owner_ids} />
           <p className={styles.note}>Список заменяется целиком. Прежний владелец сразу теряет доступ к карточке.</p>
           {error ? <ProblemAlert error={error} onReload={onReload} /> : null}
           <div className={styles.actions}>
-            <Button variant="save" busy={busy} disabled={draft.length === 0} onClick={() => void save()}>
+            <Button variant="save" busy={busy} onClick={() => void save()}>
               Сохранить владельцев
             </Button>
             <Button variant="secondary" disabled={busy} onClick={() => setEditing(false)}>

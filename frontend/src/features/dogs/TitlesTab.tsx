@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { fieldErrors } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, todayUTC } from '../../shared/format';
-import { Button, Card, EmptyState, ProblemAlert, ReasonDialog, SelectField, Table, TextArea, TextField, fieldStyles, tableStyles, toOptions } from '../../shared/ui';
+import { Button, Card, EmptyState, ProblemAlert, ReasonDialog, SelectField, Table, TextArea, TextField, fieldStyles, reportInvalid, tableStyles, toOptions } from '../../shared/ui';
 import { dogsApi, useDogDictionaries, useDogSaved, type Dog } from './dogsApi';
 import styles from './dogs.module.css';
 
@@ -110,8 +110,9 @@ function AddTitle({ dog, onReload }: { dog: Dog; onReload: () => void }) {
   const [error, setError] = useState<unknown>(null);
   const errors = fieldErrors(error);
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!reportInvalid(event.currentTarget)) return;
     setBusy(true);
     setError(null);
     try {
@@ -129,7 +130,7 @@ function AddTitle({ dog, onReload }: { dog: Dog; onReload: () => void }) {
   if (available.length === 0) return null;
   return (
     <Card heading="Записать титул">
-      <form className={styles.form} onSubmit={submit}>
+      <form className={styles.form} noValidate onSubmit={submit}>
         <div className={fieldStyles.row}>
           <SelectField
             label="Титул"
@@ -160,7 +161,7 @@ function AddTitle({ dog, onReload }: { dog: Dog; onReload: () => void }) {
           hint="Например, номер диплома. Необязательно."
         />
         {error ? <ProblemAlert error={error} onReload={onReload} /> : null}
-        <Button type="submit" variant="save" className={styles.start} busy={busy} disabled={!titleID}>
+        <Button type="submit" variant="save" className={styles.start} busy={busy}>
           Записать титул
         </Button>
       </form>

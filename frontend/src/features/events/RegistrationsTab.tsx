@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { fieldErrors } from '../../api/problem';
+import { fieldErrors, localProblem } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, pluralize } from '../../shared/format';
 import { Ball, Button, Card, Chip, EmptyState, FormDialog, Loading, QueryError, SearchPicker, SelectField, Table, Tabs, tableStyles } from '../../shared/ui';
@@ -103,13 +103,14 @@ function Admission({ registration }: { registration: Registration }) {
 }
 
 /** A dog searched among cards staff may enter. */
-function EventDogPicker({ onPick }: { onPick: (dog: { id: number; nickname: string }) => void }) {
+function EventDogPicker({ onPick, error }: { onPick: (dog: { id: number; nickname: string }) => void; error?: string }) {
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim());
   const dogs = useEventDogs(q);
   return (
     <SearchPicker
       label="Найти собаку"
+      error={error}
       query={query}
       onQuery={setQuery}
       loading={dogs.isFetching || q !== query.trim()}
@@ -205,7 +206,6 @@ function NewRegistrationDialog({ event, open, onClose, onReload }: { event: Even
   const [error, setError] = useState<unknown>(null);
   const errors = fieldErrors(error);
   const memberID = kind === 'dog' ? Number(representative) : person[0]?.id;
-  const ready = Boolean(memberID && (kind === 'person' || dog) && (!event.uses_classes || kind === 'person' || entry.classID));
 
   const close = () => {
     setDog(null);
@@ -222,9 +222,16 @@ function NewRegistrationDialog({ event, open, onClose, onReload }: { event: Even
       title="Записать участника"
       description="Запись не означает допуск: проверки покажут причины, их можно устранить до явки."
       confirmLabel="Записать"
-      ready={ready}
       onReload={onReload}
       onClose={close}
+      check={() => {
+        const missing = localProblem({
+          dog_id: kind === 'dog' && !dog ? 'Выберите собаку.' : undefined,
+          member_id: kind === 'person' && !memberID ? 'Выберите участника.' : undefined,
+        });
+        setError(missing);
+        return !missing;
+      }}
       onSubmit={async () => {
         try {
           await eventsApi.register(event.id, {
@@ -268,9 +275,9 @@ function NewRegistrationDialog({ event, open, onClose, onReload }: { event: Even
               </Button>
             </div>
           ) : (
-            <EventDogPicker onPick={setDog} />
+            <EventDogPicker onPick={setDog} error={errors.dog_id} />
           )}
-          {errors.dog_id && <p className={styles.note}>{errors.dog_id}</p>}
+          {dog && errors.dog_id && <p className={styles.note}>{errors.dog_id}</p>}
           {dog && <RepresentativeField dogID={dog.id} value={representative} onChange={setRepresentative} error={errors.member_id} />}
           <ClassSlotFields event={event} classID={entry.classID} scheduleID={entry.scheduleID} onChange={setEntry} errors={errors} />
         </>

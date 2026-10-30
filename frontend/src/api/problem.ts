@@ -42,7 +42,7 @@ export function toApiError(status: number, body: unknown): ApiError {
 
 const fallback: Record<number, string> = {
   0: 'Нет связи с сервером. Проверьте подключение и повторите.',
-  422: 'Проверьте значения полей.',
+  422: 'Исправьте ошибки в форме.',
   401: 'Сессия завершилась. Войдите снова.',
   403: 'В этом профиле нет доступа к действию.',
   404: 'Запись не найдена или недоступна.',
@@ -69,4 +69,22 @@ export function fieldErrors(error: unknown): Record<string, string> {
     }
   }
   return out;
+}
+
+/**
+ * Throws the same shape as a server 422 when a check in the form fails, so the
+ * form shows its own messages exactly like the server's: under each field.
+ */
+export function throwIfInvalid(problems: Record<string, string | undefined>): void {
+  const problem = localProblem(problems);
+  if (problem) throw problem;
+}
+
+/** The same as throwIfInvalid, returned instead of thrown; null when all is fine. */
+export function localProblem(problems: Record<string, string | undefined>): ApiError | null {
+  const errors = Object.entries(problems)
+    .filter((entry): entry is [string, string] => Boolean(entry[1]))
+    .map(([field, message]) => ({ field, code: 'invalid', message }));
+  if (errors.length === 0) return null;
+  return new ApiError(422, { type: 'about:blank', title: 'Ошибка заполнения', status: 422, code: 'validation_failed', detail: fallback[422], request_id: '', errors });
 }

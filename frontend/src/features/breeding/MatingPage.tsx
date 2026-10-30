@@ -99,7 +99,7 @@ function MatingCard({ mating, onReload }: { mating: Mating; onReload: () => void
         <Fact label="Дата" value={formatDate(mating.date)} />
         <Fact label="Исход" value={<Chip tone={outcomeItem.tone}>{outcomeItem.label}</Chip>} />
         <Fact label="Заявка" value={mating.request_id ? <Link to={`/breeding/requests/${mating.request_id}`}>Заявка {mating.request_id}</Link> : 'Без заявки'} />
-        <Fact label="Помёт" value={litter ? <Link to={`/breeding/litters/${litter.id}`}>Помёт {litter.id}</Link> : 'Не зарегистрирован'} note={`Версия ${mating.version}`} />
+        <Fact label="Помёт" value={litter ? <Link to={`/breeding/litters/${litter.id}`}>Помёт {litter.id}</Link> : 'Не зарегистрирован'} />
       </Facts>
       {mating.legacy_puppy_count !== null && <Alert tone="info">Старая запись: в прежнем учёте указано щенков — {mating.legacy_puppy_count}.</Alert>}
       {mating.outcome === 'unknown' && <p className={styles.note}>Пока исход неизвестен, следующую вязку этой суки одобрить нельзя.</p>}
@@ -112,6 +112,7 @@ function MatingCard({ mating, onReload }: { mating: Mating; onReload: () => void
         description="Исход «Помёт» ставится сам при регистрации помёта."
         confirmLabel="Сохранить"
         ready={outcome !== mating.outcome}
+        notReady="Этот исход уже записан. Выберите другой."
         onReload={onReload}
         onClose={close}
         onConfirm={async (reason) => {

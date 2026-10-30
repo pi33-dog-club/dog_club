@@ -3,7 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { fieldErrors } from '../../api/problem';
 import { formatDate, parseMeasure, todayUTC } from '../../shared/format';
-import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextField, fieldStyles, toOptions } from '../../shared/ui';
+import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextField, fieldStyles, reportInvalid, toOptions } from '../../shared/ui';
 import { MemberPicker, type PickedMember } from '../members/MemberPicker';
 import { dogKeys, dogsApi, useDog, useDogDictionaries, useDogSaved, type Dog, type DogPatchInput } from './dogsApi';
 import styles from './dogs.module.css';
@@ -87,22 +87,25 @@ function DogForm({ dog }: { dog?: Dog }) {
     setUnchanged(false);
   };
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Browser checks report through onInvalid; the form's own checks are added on top.
+    setLocal({});
+    const valid = reportInvalid(event.currentTarget);
     const height = parseMeasure(values.height_cm);
     const weight = parseMeasure(values.weight_kg);
     const problems: Record<string, string> = {};
-    for (const [field, value, max, label] of [['height_cm', height, 150, 'Рост, см'], ['weight_kg', weight, 200, 'Вес, кг']] as const) {
+    for (const [field, value, max, unit] of [['height_cm', height, 150, 'см'], ['weight_kg', weight, 200, 'кг']] as const) {
       if (value !== null && (!Number.isFinite(value) || value < 0.01 || value > max || Math.abs(value * 100 - Math.round(value * 100)) > 1e-7)) {
-        problems[field] = `${label}: укажите число от 0,01 до ${max}, не более двух знаков после запятой.`;
+        problems[field] = `Укажите число от 0,01 до ${max} ${unit}, не более двух знаков после запятой.`;
       }
     }
-    if (!values.date_of_birth || values.date_of_birth < '1900-01-01' || values.date_of_birth > today) problems.date_of_birth = 'Укажите дату рождения с 01.01.1900 по сегодня.';
+    if (!values.date_of_birth || values.date_of_birth < '1900-01-01' || values.date_of_birth > today) problems.date_of_birth = 'Укажите существующую дату рождения с 01.01.1900 по сегодня.';
     if (values.identifier_date && values.identifier_date < values.date_of_birth) problems['identifier.date'] = 'Дата идентификации не может быть раньше даты рождения.';
     if (!dog && owners.length === 0) problems.owner_ids = 'Выберите хотя бы одного владельца.';
     setError(null);
-    setLocal(problems);
-    if (Object.keys(problems).length > 0) return;
+    setLocal((current) => ({ ...current, ...problems }));
+    if (!valid || Object.keys(problems).length > 0) return;
 
     const identifier = { type_id: Number(values.identifier_type_id), number: values.identifier_number, date: values.identifier_date || null };
     setBusy(true);
@@ -156,7 +159,7 @@ function DogForm({ dog }: { dog?: Dog }) {
     <>
       <PageHeader eyebrow={dog ? `Собаки / ${dog.nickname}` : 'Собаки'} title={dog ? 'Изменить карточку' : 'Регистрация собаки'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           <fieldset className={fieldStyles.fieldset}>
             <legend className={fieldStyles.legend}>Собака</legend>
             <div className={fieldStyles.row}>

@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { components } from '../../api/schema';
@@ -37,7 +37,7 @@ describe('dog photos', () => {
   it('checks the type and size before upload', () => {
     expect(photoProblem(new File(['x'], 'a.jpg', { type: 'image/jpeg' }))).toBeUndefined();
     expect(photoProblem(new File(['x'], 'a.gif', { type: 'image/gif' }))).toBe('Подойдёт JPEG или PNG.');
-    expect(photoProblem(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }))).toBe('Фото больше 5 МиБ.');
+    expect(photoProblem(new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }))).toBe('Фото больше 5 МБ.');
   });
 
   it('shows the photo and lets staff replace it with the current photo version', async () => {
@@ -53,9 +53,8 @@ describe('dog photos', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Заменить фото' }));
     const dialog = screen.getByRole('dialog');
     await userEvent.upload(within(dialog).getByLabelText('Фото'), new File(['new'], 'new.jpg', { type: 'image/jpeg' }));
-    expect((within(dialog).getByRole('button', { name: 'Сохранить' }) as HTMLButtonElement).disabled).toBe(false);
-    // jsdom keeps a required file input invalid after upload, so the form is submitted directly.
-    fireEvent.submit(dialog.querySelector('form')!);
+    expect(within(dialog).getByText('new.jpg')).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     const body = await calls.find((call) => call.method === 'PUT')!.text();
     expect(body).toMatch(/name="version"\r\n\r\n2\r\n/);

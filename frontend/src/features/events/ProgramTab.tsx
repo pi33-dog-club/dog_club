@@ -88,8 +88,11 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
     setSlot(item);
   };
 
-  const ageError = badMonths(classDraft.min) || badMonths(classDraft.max) ? 'Укажите целое число от 0 до 1200 месяцев.' : undefined;
-  const ageOrder = !ageError && classDraft.min && classDraft.max && Number(classDraft.min) > Number(classDraft.max) ? 'Минимум больше максимума.' : undefined;
+  const monthsRule = 'Укажите целое число месяцев от 0 до 1200.';
+  const minError = badMonths(classDraft.min) ? monthsRule : undefined;
+  const maxError = badMonths(classDraft.max) ? monthsRule : undefined;
+  const ageError = minError ?? maxError;
+  const ageOrder = !ageError && classDraft.min && classDraft.max && Number(classDraft.min) > Number(classDraft.max) ? 'Верхняя граница возраста не может быть меньше нижней.' : undefined;
   const expertError = classDraft.requirements.trim() && !classDraft.requires_expert ? 'Для заполненных требований включите решение эксперта по квалификации.' : undefined;
   const slotOrder = slotDraft.starts && slotDraft.ends && slotDraft.ends < slotDraft.starts ? 'Окончание раньше начала.' : undefined;
 
@@ -260,7 +263,7 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
             inputMode="numeric"
             value={classDraft.min}
             onChange={(change) => setClassDraft({ ...classDraft, min: change.target.value })}
-            error={ageError ?? errors.min_age_months ?? errors.age}
+            error={minError ?? errors.min_age_months}
             hint="Необязательно. От 0 до 1200 месяцев."
           />
           <TextField
@@ -268,7 +271,7 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
             inputMode="numeric"
             value={classDraft.max}
             onChange={(change) => setClassDraft({ ...classDraft, max: change.target.value })}
-            error={ageError ?? ageOrder ?? errors.max_age_months ?? errors.age}
+            error={maxError ?? ageOrder ?? errors.max_age_months}
             hint="Необязательно. Не меньше нижней границы."
           />
         </div>

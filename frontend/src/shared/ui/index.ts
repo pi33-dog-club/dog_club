@@ -2,7 +2,7 @@ export { Alert, ProblemAlert } from './Alert';
 export { Button, ButtonLink } from './Button';
 export { Card } from './Card';
 export { Chip, type ChipTone } from './Chip';
-export { Field, fieldStyles, MIN_PASSWORD, PasswordField, TextArea, TextField, passwordLength } from './Field';
+export { Field, FileField, fieldStyles, MIN_PASSWORD, PasswordField, TextArea, TextField, passwordLength, reportInvalid } from './Field';
 export { PageHeader } from './PageHeader';
 export { FormDialog, MAX_REASON, ReasonDialog } from './ReasonDialog';
 export { Stamp } from './Stamp';

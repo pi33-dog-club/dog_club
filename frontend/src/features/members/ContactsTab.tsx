@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { ApiError, fieldErrors } from '../../api/problem';
+import { fieldErrors, throwIfInvalid } from '../../api/problem';
+import { badEmail, badPhone } from '../../shared/rules';
 import { Button, Card, EmptyState, FormDialog, SelectField, Table, TextField, fieldStyles, tableStyles, toOptions } from '../../shared/ui';
 import { formatAddress, membersApi, useMemberDictionaries, useMemberSaved, type Member, type MemberAddress, type MemberContact } from './membersApi';
 import styles from './members.module.css';
@@ -29,21 +30,23 @@ function Contacts({ member, editable, onReload }: TabProps) {
   const [removing, setRemoving] = useState<MemberContact | null>(null);
   const [error, setError] = useState<unknown>(null);
   const errors = fieldErrors(error);
-  const isPhone = dictionaries.data?.contact_types.find((type) => String(type.id) === draft?.type_id)?.name === 'Телефон';
+  const kind = dictionaries.data?.contact_types.find((type) => String(type.id) === draft?.type_id)?.name;
+  const isPhone = kind === 'Телефон';
+  const isEmail = kind === 'Email';
 
   const save = async () => {
     if (!draft) return;
-    const body = { version: member.version, type_id: Number(draft.type_id), value: draft.value };
+    const value = isEmail ? draft.value.trim().toLowerCase() : draft.value.trim();
+    const body = { version: member.version, type_id: Number(draft.type_id), value };
     try {
-      const phone = draft.value.trim();
-      const digits = phone.replace(/[^0-9]/g, '');
-      if (isPhone && (!/^[0-9+(). \-]+$/.test(phone) || digits.length < 7 || digits.length > 15 || phone.length > 50)) {
-        throw new ApiError(422, {
-          type: 'about:blank', title: 'Ошибка заполнения', status: 422, code: 'validation_failed', request_id: '',
-          detail: 'Проверьте номер телефона.',
-          errors: [{ field: 'value', code: 'invalid', message: 'Укажите телефон с 7–15 цифрами; допустимы пробелы, +, скобки, точка и дефис.' }],
-        });
-      }
+      throwIfInvalid({
+        value:
+          isPhone && badPhone(value)
+            ? 'Укажите телефон: от 7 до 15 цифр, например +7 900 123-45-67. Можно использовать пробелы, +, скобки, точку и дефис.'
+            : isEmail && badEmail(value)
+              ? 'Укажите email в виде name@example.ru, без имени и кавычек.'
+              : undefined,
+      });
       saved(draft.id ? await membersApi.replaceContact(member.id, draft.id, body) : await membersApi.addContact(member.id, body));
       setError(null);
     } catch (failure) {
@@ -122,7 +125,16 @@ function Contacts({ member, editable, onReload }: TabProps) {
               onChange={(event) => setDraft({ ...draft, type_id: event.target.value })}
               error={errors.type_id}
             />
-            <TextField label="Значение" type={isPhone ? 'tel' : 'text'} hint={isPhone ? 'От 7 до 15 цифр, например +7 (900) 123-45-67.' : undefined} required value={draft.value} onChange={(event) => setDraft({ ...draft, value: event.target.value })} error={errors.value} />
+            <TextField
+              label="Значение"
+              type={isPhone ? 'tel' : isEmail ? 'email' : 'text'}
+              maxLength={isPhone ? 50 : 254}
+              hint={isPhone ? 'От 7 до 15 цифр, например +7 (900) 123-45-67.' : isEmail ? 'Например, name@example.ru.' : undefined}
+              required
+              value={draft.value}
+              onChange={(event) => setDraft({ ...draft, value: event.target.value })}
+              error={errors.value}
+            />
           </>
         )}
       </FormDialog>
@@ -251,11 +263,11 @@ function Addresses({ member, editable, onReload }: TabProps) {
         {draft && (
           <>
             <SelectField label="Тип" required placeholder="Выберите…" options={toOptions(dictionaries.data?.address_types ?? [])} {...field('type_id')} />
-            <TextField label="Населённый пункт" required {...field('locality')} />
-            <TextField label="Улица" {...field('street')} />
+            <TextField label="Населённый пункт" required maxLength={100} {...field('locality')} />
+            <TextField label="Улица" maxLength={100} {...field('street')} />
             <div className={fieldStyles.row}>
-              <TextField label="Дом" {...field('building_number')} />
-              <TextField label="Квартира" {...field('apartment_number')} />
+              <TextField label="Дом" maxLength={20} {...field('building_number')} />
+              <TextField label="Квартира" maxLength={20} {...field('apartment_number')} />
             </div>
           </>
         )}

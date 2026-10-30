@@ -5,7 +5,7 @@ import { canReturnTo, homePath } from '../../app/navigation';
 import heroPhoto from '../../assets/login-hero.jpg';
 import { useAuth } from '../../auth/AuthProvider';
 import * as authApi from '../../auth/authApi';
-import { Alert, Ball, Button, MIN_PASSWORD, PasswordField, ProblemAlert, Stamp, Tabs, TextField, passwordLength, tabPanelProps } from '../../shared/ui';
+import { Alert, Ball, Button, PasswordField, ProblemAlert, Stamp, Tabs, TextField, reportInvalid, tabPanelProps } from '../../shared/ui';
 import clsx from '../../shared/ui/clsx';
 import styles from './LoginPage.module.css';
 
@@ -100,8 +100,9 @@ function LoginForm({ notice, onForgot }: { notice: string; onForgot: () => void 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!reportInvalid(event.currentTarget)) return;
     setBusy(true);
     setError(null);
     try {
@@ -114,7 +115,7 @@ function LoginForm({ notice, onForgot }: { notice: string; onForgot: () => void 
   };
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form className={styles.form} noValidate onSubmit={submit}>
       {notice && <Alert tone="success">{notice}</Alert>}
       <TextField label="Логин" autoComplete="username" required value={name} onChange={(event) => setName(event.target.value)} placeholder="ivanova.m" />
       <PasswordField
@@ -147,10 +148,9 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const fields = fieldErrors(error);
-  const short = passwordLength(password) < MIN_PASSWORD;
-
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!reportInvalid(event.currentTarget)) return;
     setBusy(true);
     setError(null);
     try {
@@ -163,11 +163,11 @@ function ActivateForm({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form className={styles.form} noValidate onSubmit={submit}>
       <TextField label="Код из письма-приглашения" required value={token} onChange={(event) => setToken(event.target.value)} placeholder="Вставьте код" hint="Код действует 48 часов." error={fields.token} autoComplete="one-time-code" />
       <PasswordField label="Придумайте пароль" meter autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} error={fields.password} />
       {error ? <ProblemAlert error={error} /> : null}
-      <Button type="submit" size="large" block busy={busy} disabled={short || !token.trim()}>
+      <Button type="submit" size="large" block busy={busy}>
         Активировать аккаунт
       </Button>
     </form>
@@ -200,8 +200,10 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
     return (
       <form
         className={styles.form}
+        noValidate
         onSubmit={(event) => {
           event.preventDefault();
+          if (!reportInvalid(event.currentTarget)) return;
           void run(async () => {
             const result = await authApi.forgotPassword(name.trim());
             setSent(result.message);
@@ -226,8 +228,10 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
   return (
     <form
       className={styles.form}
+      noValidate
       onSubmit={(event) => {
         event.preventDefault();
+        if (!reportInvalid(event.currentTarget)) return;
         void run(async () => {
           await authApi.resetPassword(token.trim(), password);
           onDone();
@@ -237,7 +241,7 @@ function ForgotForm({ onDone }: { onDone: () => void }) {
       <TextField label="Код из письма" required value={token} onChange={(event) => setToken(event.target.value)} hint="Код действует 30 минут." error={fields.token} autoComplete="one-time-code" />
       <PasswordField label="Новый пароль" meter autoComplete="new-password" required value={password} onChange={(event) => setPassword(event.target.value)} error={fields.password} />
       {error ? <ProblemAlert error={error} /> : null}
-      <Button type="submit" size="large" block busy={busy} disabled={passwordLength(password) < MIN_PASSWORD || !token.trim()}>
+      <Button type="submit" size="large" block busy={busy}>
         Сохранить пароль
       </Button>
       <button type="button" className={styles.inlineLink} onClick={() => setStep('request')}>

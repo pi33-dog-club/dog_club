@@ -186,6 +186,7 @@ export function ResultDialog({
       description={`${event.name}. Нужно хотя бы одно: оценка, место или комментарий.`}
       confirmLabel="Сохранить"
       ready={Boolean((grade || place.trim() || comment.trim()) && !badPlace)}
+      notReady={badPlace ? undefined : 'Укажите оценку, место или комментарий эксперта.'}
       onReload={onReload}
       onClose={onClose}
       onConfirm={async (reason) => {

@@ -192,7 +192,8 @@ describe('events', () => {
     await userEvent.type(within(dialog).getByLabelText('Требования'), 'Базовые команды');
     await userEvent.type(within(dialog).getByLabelText('Причина'), 'Настройка класса');
     expect(within(dialog).getByText('Для заполненных требований включите решение эксперта по квалификации.')).toBeTruthy();
-    expect((within(dialog).getByRole('button', { name: 'Сохранить' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(calls.some((call) => call.url.endsWith('/classes'))).toBe(false);
     await userEvent.click(within(dialog).getByLabelText('Нужно решение эксперта по квалификации'));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/classes'))).toBe(true));

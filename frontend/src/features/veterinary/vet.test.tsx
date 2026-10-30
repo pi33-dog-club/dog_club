@@ -179,7 +179,8 @@ describe('veterinary', () => {
     expect(within(dialog).getByRole('heading', { name: 'Исправить заключение' })).toBeTruthy();
     expect((within(dialog).getByLabelText('Осмотр') as HTMLSelectElement).value).toBe('41');
     await userEvent.selectOptions(within(dialog).getByLabelText('Решение'), 'denied');
-    expect(within(dialog).getByRole('button', { name: 'Сохранить' }).hasAttribute('disabled')).toBe(true);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(within(dialog).getByText('Заполните поле «Причина исправления».')).toBeTruthy();
     await userEvent.type(within(dialog).getByLabelText('Причина исправления'), 'Ошибка в решении');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));

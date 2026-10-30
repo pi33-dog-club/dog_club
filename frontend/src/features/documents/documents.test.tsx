@@ -70,7 +70,7 @@ describe('documents', () => {
   it('accepts only PDF, JPEG and PNG up to 10 MiB before upload', () => {
     expect(uploadProblem(new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }))).toBeUndefined();
     expect(uploadProblem(new File(['x'], 'a.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }))).toBe('Подойдёт PDF, JPEG или PNG.');
-    expect(uploadProblem(new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }))).toBe('Файл больше 10 МиБ.');
+    expect(uploadProblem(new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'big.png', { type: 'image/png' }))).toBe('Файл больше 10 МБ.');
   });
 
   it('downloads a file with the session token as an attachment', async () => {
@@ -127,7 +127,8 @@ describe('documents', () => {
     const dialog = screen.getByRole('dialog');
     const exams = within(dialog).getByLabelText('Осмотр') as HTMLSelectElement;
     await waitFor(() => expect(exams.options.length).toBe(2));
-    expect(within(dialog).getByRole('button', { name: 'Сформировать' }).hasAttribute('disabled')).toBe(true);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сформировать' }));
+    expect(within(dialog).getByText('Выберите значение в поле «Осмотр».')).toBeTruthy();
     await userEvent.selectOptions(exams, '11');
     await userEvent.type(within(dialog).getByLabelText('Причина'), 'Выдача справки');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сформировать' }));

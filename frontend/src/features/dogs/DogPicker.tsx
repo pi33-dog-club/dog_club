@@ -9,15 +9,17 @@ interface DogPickerProps {
   /** Mother and father are searched among dogs of one sex on the server. */
   sexID?: number;
   excludeID?: number;
+  /** Only dogs born before this date: a parent must be older than the puppy. */
+  bornBefore?: string;
   onPick: (dog: DogSummary) => void;
   error?: string;
 }
 
-export function DogPicker({ label, sexID, excludeID, onPick, error }: DogPickerProps) {
+export function DogPicker({ label, sexID, excludeID, bornBefore, onPick, error }: DogPickerProps) {
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim());
   const dogs = useDogs({ q, sex_id: sexID, limit: 10 }, q.length > 0);
-  const found = dogs.data?.pages.flatMap((page) => page.dogs).filter((dog) => dog.id !== excludeID);
+  const found = dogs.data?.pages.flatMap((page) => page.dogs).filter((dog) => dog.id !== excludeID && (!bornBefore || dog.date_of_birth < bornBefore));
   return (
     <SearchPicker
       label={label}
@@ -25,7 +27,7 @@ export function DogPicker({ label, sexID, excludeID, onPick, error }: DogPickerP
       onQuery={setQuery}
       loading={dogs.isFetching || q !== query.trim()}
       error={error}
-      hint="Кличка, номер идентификатора или родословной."
+      hint={bornBefore ? `Кличка, номер идентификатора или родословной. Показаны собаки, родившиеся до ${formatDate(bornBefore)}.` : 'Кличка, номер идентификатора или родословной.'}
       items={found?.map((dog) => ({
         id: dog.id,
         title: dog.nickname,

@@ -101,7 +101,7 @@ function DogCard({ dog, onReload }: { dog: Dog; onReload: () => void }) {
           }
         />
         <Fact label="Титулы" value={dog.titles[0]?.type.name ?? 'Нет'} note={dog.titles.length > 0 ? pluralize(dog.titles.length, 'запись', 'записи', 'записей') : undefined} />
-        <Fact label="Документы" value={<Link to={`/documents?dog=${dog.id}`}>Открыть</Link>} note={`Версия карточки ${dog.version}`} />
+        <Fact label="Документы" value={<Link to={`/documents?dog=${dog.id}`}>Открыть</Link>} />
       </Facts>
 
       <Tabs label="Разделы карточки" idPrefix="dog" value={tab} options={tabs} onChange={(value) => setParams(value === 'health' ? {} : { tab: value }, { replace: true })} />
@@ -134,6 +134,7 @@ function RegistrationDialog({ dog, open, onReload, onClose }: { dog: Dog; open: 
       description="Подтверждённая дата постановки на учёт: попадает в отчёты и документы. Пустое поле снимает подтверждение."
       confirmLabel="Сохранить"
       ready={date !== (dog.registration_date ?? '')}
+      notReady="Дата не изменилась. Укажите другую дату или очистите поле, чтобы снять подтверждение."
       onReload={onReload}
       onClose={onClose}
       onConfirm={async (reason) => {

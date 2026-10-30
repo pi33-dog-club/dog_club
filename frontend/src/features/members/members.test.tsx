@@ -57,12 +57,36 @@ describe('members', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
     const errorID = input.getAttribute('aria-describedby')!.split(' ').at(-1)!;
-    expect(document.getElementById(errorID)?.textContent).toContain('Укажите телефон с 7–15 цифрами');
+    expect(document.getElementById(errorID)?.textContent).toContain('Укажите телефон: от 7 до 15 цифр');
     expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contacts'))).toBe(false);
     await userEvent.clear(input);
     await userEvent.type(input, '+7 (900) 123-45-67');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contacts'))).toBe(true));
+  });
+
+  it('checks an email contact like the server before sending', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/member-dictionaries': () => json(memberDictionaries),
+      'GET /api/v1/members/3': () => json(member()),
+      'POST /api/v1/members/3/contacts': () => json(member({ version: 3 })),
+    });
+    renderApp('/members/3');
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить контакт' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Тип'), 'Email');
+    const input = within(dialog).getByLabelText('Значение');
+    await userEvent.type(input, 'Мария <maria@example.ru>');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
+    expect(calls.some((call) => call.url.endsWith('/contacts'))).toBe(false);
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Maria@Example.ru');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contacts'))).toBe(true));
+    const body = await calls.find((call) => call.method === 'POST' && call.url.endsWith('/contacts'))!.json();
+    expect(body.value).toBe('maria@example.ru');
   });
 
   it('explains invalid birth and membership dates without sending changes', async () => {

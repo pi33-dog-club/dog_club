@@ -61,7 +61,7 @@ function MemberCard({ member, own, onReload }: { member: Member; own?: boolean; 
         <Fact label="Членство" value={<MembershipChip status={member.membership_status} />} />
         <Fact label="В клубе с" value={formatDate(member.membership_date)} />
         <Fact label="Дата рождения" value={formatDate(member.date_of_birth)} />
-        <Fact label="Документы" value={<Link to={own ? '/documents' : `/documents?member=${member.id}`}>Открыть</Link>} note={`Версия карточки ${member.version}`} />
+        <Fact label="Документы" value={<Link to={own ? '/documents' : `/documents?member=${member.id}`}>Открыть</Link>} />
       </Facts>
       {own && <p className={styles.note}>Изменить данные карточки может сотрудник клуба.</p>}
       <Tabs label="Разделы карточки" idPrefix="member" value={tab} options={tabs} onChange={(value) => setParams(value === 'contacts' ? {} : { tab: value }, { replace: true })} />
@@ -152,7 +152,6 @@ function MemberHistory({ memberID }: { memberID: number }) {
             return {
               id: change.id,
               title: actions[change.action] ?? 'Запись изменена',
-              version: before ? `версия ${before.version} → ${change.after.version}` : `версия ${change.after.version}`,
               details: change.action === 'member_updated' && changed.length > 0 ? `Изменено: ${changed.join(', ')}` : undefined,
               meta: `${actorLabel(change.actor_role)} · ${formatDateTime(change.changed_at)}`,
             };

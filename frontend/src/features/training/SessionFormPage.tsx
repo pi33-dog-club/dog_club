@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
-import { fieldErrors } from '../../api/problem';
-import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextArea, TextField, fieldStyles, MAX_REASON } from '../../shared/ui';
+import { fieldErrors, localProblem } from '../../api/problem';
+import { Alert, Button, Card, Loading, PageHeader, ProblemAlert, QueryError, SelectField, TextArea, TextField, fieldStyles, reportInvalid, MAX_REASON } from '../../shared/ui';
 import { DogPicker } from '../dogs/DogPicker';
 import { isActiveStatus, useDog, useDogDictionaries } from '../dogs/dogsApi';
 import { useEventDictionaries, useEvents, useRegistrations } from '../events/eventsApi';
@@ -63,9 +63,12 @@ function SessionForm({ session, initialDog }: { session?: TrainingSession; initi
     );
   }
 
-  const submit = async (submitEvent: FormEvent) => {
+  const submit = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();
-    if (!dogID) return;
+    const valid = reportInvalid(submitEvent.currentTarget);
+    const missing = localProblem({ dog_id: dogID ? undefined : 'Выберите собаку.' });
+    setError(missing);
+    if (!valid || missing || !ready || !dogID) return;
     setBusy(true);
     setError(null);
     const body = {
@@ -91,7 +94,7 @@ function SessionForm({ session, initialDog }: { session?: TrainingSession; initi
     <>
       <PageHeader eyebrow="Дрессировка" title={session ? 'Исправить занятие' : 'Новое занятие'} />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           {dogID ? (
             <div className={styles.picked}>
               <b>
@@ -168,7 +171,7 @@ function SessionForm({ session, initialDog }: { session?: TrainingSession; initi
           <p className={styles.note}>Медицинский допуск к мероприятиям проверится на даты занятия; без него занятие сохранится с предупреждением.</p>
           {error ? <ProblemAlert error={error} /> : null}
           <div className={styles.actions}>
-            <Button type="submit" variant="save" busy={busy} disabled={!ready}>
+            <Button type="submit" variant="save" busy={busy}>
               {session ? 'Сохранить' : 'Внести занятие'}
             </Button>
             <Link to={session ? `/training/${session.dog_id}/${session.id}` : '/training'}>Отмена</Link>

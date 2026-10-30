@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, FormDialog, ReasonDialog, TextField } from '../../shared/ui';
+import { Button, FileField, FormDialog, ReasonDialog } from '../../shared/ui';
 import { photoApi, photoProblem, usePhotoSaved, useDogPhoto } from './photoApi';
 import styles from './dogs.module.css';
 
@@ -9,6 +9,7 @@ export function PhotoControls({ dogID }: { dogID: number }) {
   const saved = usePhotoSaved();
   const [dialog, setDialog] = useState<'upload' | 'remove' | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [tried, setTried] = useState(false);
   const problem = photoProblem(file);
   const current = photo.data?.meta;
   if (photo.isPending) return null;
@@ -26,12 +27,16 @@ export function PhotoControls({ dogID }: { dogID: number }) {
       <FormDialog
         open={dialog === 'upload'}
         title={current ? 'Заменить фото' : 'Загрузить фото'}
-        description="JPEG или PNG до 5 МиБ. Фото увидят сотрудники, руководитель, ветеринар, эксперт и владельцы собаки."
+        description="JPEG или PNG до 5 МБ. Фото увидят сотрудники, руководитель, ветеринар, эксперт и владельцы собаки."
         confirmLabel="Сохранить"
-        ready={Boolean(file && !problem)}
+        check={() => {
+          setTried(true);
+          return Boolean(file && !problem);
+        }}
         onReload={() => void saved(dogID)}
         onClose={() => {
           setFile(null);
+          setTried(false);
           setDialog(null);
         }}
         onSubmit={async () => {
@@ -39,7 +44,7 @@ export function PhotoControls({ dogID }: { dogID: number }) {
           await saved(dogID);
         }}
       >
-        <TextField label="Фото" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} error={problem} />
+        <FileField label="Фото" file={file} accept=".jpg,.jpeg,.png,image/jpeg,image/png" required onChange={(event) => setFile(event.target.files?.[0] ?? null)} error={problem ?? (tried && !file ? 'Выберите файл фото.' : undefined)} />
       </FormDialog>
       <ReasonDialog
         open={dialog === 'remove'}

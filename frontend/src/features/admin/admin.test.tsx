@@ -61,6 +61,24 @@ describe('administration', () => {
     expect(body).toEqual({ login: 'boris', email: 'boris@dogclub.test', role: 'staff' });
   });
 
+  it('explains the login rule under the field before inviting', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('admin')),
+      'GET /api/v1/users': users,
+    });
+    renderApp('/admin/users');
+    await userEvent.click(await screen.findByRole('button', { name: /Пригласить/ }));
+    const dialog = screen.getByRole('dialog');
+    const login = within(dialog).getByLabelText('Логин');
+    await userEvent.type(login, 'Борис');
+    await userEvent.type(within(dialog).getByLabelText('Email'), 'boris@dogclub.test');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Пригласить' }));
+    await waitFor(() => expect(login.getAttribute('aria-invalid')).toBe('true'));
+    const errorID = login.getAttribute('aria-describedby')!.split(' ').at(-1)!;
+    expect(document.getElementById(errorID)?.textContent).toContain('строчные латинские буквы');
+    expect(calls.some((call) => call.url.endsWith('/invitations'))).toBe(false);
+  });
+
   it('explains that the last administrator cannot be blocked', async () => {
     mockFetch({
       'POST /api/v1/auth/refresh': () => json(credentialsFor('admin')),

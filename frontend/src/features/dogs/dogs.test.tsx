@@ -74,6 +74,7 @@ describe('dog card', () => {
     expect(screen.getByText('Щенок зарегистрирован')).toBeTruthy();
     expect(screen.getByText('Указаны родители по помёту')).toBeTruthy();
     for (const action of actions) expect(screen.queryByText(action)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/[Вв]ерси[яи]/);
   });
 
   it('offers a reload when another user changed the card', async () => {
@@ -98,7 +99,7 @@ describe('dog card', () => {
       'GET /api/v1/dog-dictionaries': () => json(dogDictionaries),
       'GET /api/v1/dogs/7': () => json(dog()),
       'GET /api/v1/dogs/5': () => json(dog({ id: 5, nickname: 'Граф' })),
-      'GET /api/v1/dogs': () => json({ dogs: [summary({ id: 9, nickname: 'Альма', sex: { id: 2, name: 'Сука' } })], next_after: null }),
+      'GET /api/v1/dogs': () => json({ dogs: [summary({ id: 9, nickname: 'Альма', sex: { id: 2, name: 'Сука' }, date_of_birth: '2019-03-01' }), summary({ id: 10, nickname: 'Белка', sex: { id: 2, name: 'Сука' }, date_of_birth: '2024-01-01' })], next_after: null }),
       'PUT /api/v1/dogs/7/pedigree': () => json(dog({ version: 5 })),
       'GET /api/v1/members/3': () => json(member()),
     });
@@ -107,7 +108,10 @@ describe('dog card', () => {
     const mother = screen.getByRole('group', { name: 'Мать' });
     await userEvent.click(within(mother).getByRole('tab', { name: 'Собака клуба' }));
     await userEvent.type(within(mother).getByLabelText('Найти: мать'), 'Аль');
-    await userEvent.click(await within(mother).findByRole('button', { name: /Альма/ }));
+    await within(mother).findByRole('button', { name: /Альма/ });
+    // A dog born after the puppy is not offered as its parent.
+    expect(within(mother).queryByRole('button', { name: /Белка/ })).toBeNull();
+    await userEvent.click(within(mother).getByRole('button', { name: /Альма/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить родословную' }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     const search = calls.find((call) => call.method === 'GET' && new URL(call.url).pathname === '/api/v1/dogs')!;
@@ -135,8 +139,8 @@ describe('dog form validation', () => {
     fireEvent.change(await screen.findByLabelText('Рост, см'), { target: { value } });
     fireEvent.change(screen.getByLabelText('Вес, кг'), { target: { value } });
     await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
-    expect(await screen.findByText('Рост, см: укажите число от 0,01 до 150, не более двух знаков после запятой.')).toBeTruthy();
-    expect(screen.getByText('Вес, кг: укажите число от 0,01 до 200, не более двух знаков после запятой.')).toBeTruthy();
+    expect(await screen.findByText('Укажите число от 0,01 до 150 см, не более двух знаков после запятой.')).toBeTruthy();
+    expect(screen.getByText('Укажите число от 0,01 до 200 кг, не более двух знаков после запятой.')).toBeTruthy();
     expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
   });
 

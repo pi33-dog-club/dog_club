@@ -126,7 +126,6 @@ function RequestCard({ request, onReload }: { request: BreedingRequest; onReload
         <Fact
           label="Вязка"
           value={mating ? <Link to={`/breeding/matings/${mating.id}`}>Проведена {formatDate(mating.date)}</Link> : 'Не проведена'}
-          note={`Версия заявки ${request.version}`}
         />
       </Facts>
       {request.comment && <Alert tone="info">{request.comment}</Alert>}

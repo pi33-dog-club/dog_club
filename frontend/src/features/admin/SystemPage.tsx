@@ -47,14 +47,14 @@ export function SystemPage() {
           </Facts>
         </div>
       </Card>
-      <Card heading="HTTP-маршруты">
+      <Card heading="Запросы к серверу">
         <Table caption="Запросы по маршрутам">
           <thead>
             <tr>
               <th scope="col">Маршрут</th>
               <th scope="col">Запросов</th>
-              <th scope="col">Ошибок 4xx</th>
-              <th scope="col">Ошибок 5xx</th>
+              <th scope="col">Отклонено</th>
+              <th scope="col">Сбоев сервера</th>
               <th scope="col">Среднее</th>
               <th scope="col">Максимум</th>
             </tr>

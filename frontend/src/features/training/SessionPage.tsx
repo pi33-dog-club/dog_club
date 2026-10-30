@@ -58,7 +58,7 @@ function SessionCard({ session, onReload }: { session: TrainingSession; onReload
         <Fact label="Собака" value={<DogLabel id={session.dog_id} />} />
         <Fact label="Время" value={sessionTime(session)} note={session.starts_at ? zoneCaption(session.timezone, session.starts_at) : undefined} />
         <Fact label="Инструктор" value={session.instructor_name || 'Неизвестен'} />
-        <Fact label="Вид" value={session.type.name} note={`Версия ${session.version}`} />
+        <Fact label="Вид" value={session.type.name} />
         {event && (
           <Fact
             label="Мероприятие"

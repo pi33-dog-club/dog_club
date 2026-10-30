@@ -96,6 +96,7 @@ function GrantDialog({ grant, existing, onClose }: { grant: Instructor | 'new' |
       description="Допуск разрешает вносить занятия сейчас; прошлую квалификацию он не подтверждает."
       confirmLabel="Сохранить"
       ready={ready}
+      notReady={enabled && typeIDs.length === 0 ? 'Отметьте хотя бы один вид дрессировки.' : undefined}
       onClose={onClose}
       onConfirm={async (reason) => {
         await adminApi.setInstructor(profileID, {

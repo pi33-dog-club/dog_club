@@ -6,7 +6,7 @@ import { downloadFile } from '../../api/files';
 import { roleLabels } from '../../app/navigation';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, formatDateTime, todayUTC } from '../../shared/format';
-import { Button, Card, Fact, Facts, Loading, PageHeader, ProblemAlert, QueryError, Table, TextField, fieldStyles } from '../../shared/ui';
+import { Button, Card, Fact, Facts, Loading, PageHeader, ProblemAlert, QueryError, Table, TextField, fieldStyles, reportInvalid } from '../../shared/ui';
 import styles from './reports.module.css';
 
 export interface Period {
@@ -32,22 +32,22 @@ export function ReportsPage() {
   const report = useReport(period);
   const order = from && to && to < from ? 'Конец раньше начала.' : undefined;
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (from && to && !order) setPeriod({ from, to });
+    if (reportInvalid(event.currentTarget) && !order) setPeriod({ from, to });
   };
 
   return (
     <>
       <PageHeader eyebrow={roleLabels[profile.role]} title="Отчёт о деятельности клуба" />
       <Card>
-        <form className={styles.form} onSubmit={submit}>
+        <form className={styles.form} noValidate onSubmit={submit}>
           <div className={fieldStyles.row}>
             <TextField label="С даты" type="date" required value={from} onChange={(change) => setFrom(change.target.value)} />
             <TextField label="По дату" type="date" required min={from || undefined} value={to} onChange={(change) => setTo(change.target.value)} error={order} />
           </div>
           <div className={styles.actions}>
-            <Button type="submit" variant="save" disabled={!from || !to || Boolean(order)} busy={report.isFetching}>
+            <Button type="submit" variant="save" busy={report.isFetching}>
               Сформировать
             </Button>
             <span className={styles.note}>Обе даты включительно. Считаются только уже записанные факты.</span>
