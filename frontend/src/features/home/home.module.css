@@ -81,6 +81,12 @@
   margin-top: var(--space-2);
 }
 
+/* A long admission note wraps inside the narrow tile instead of overflowing it. */
+.chips > * {
+  max-width: 100%;
+  white-space: normal;
+}
+
 .links {
   display: flex;
   flex-wrap: wrap;
