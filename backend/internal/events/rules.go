@@ -75,7 +75,7 @@ func validateEvent(in *EventInput) error {
 		return invalid("period", "Локальная дата выходит за поддерживаемый диапазон.")
 	}
 	if in.Audience != "dogs" && in.Audience != "people" && in.Audience != "mixed" {
-		return invalid("audience", "Выберите dogs, people или mixed.")
+		return invalid("audience", "Выберите аудиторию: собаки, люди или собаки и люди.")
 	}
 	if in.Audience == "people" && in.UsesClasses {
 		return invalid("uses_classes", "Классы собак не применяются к участию людей без собак.")

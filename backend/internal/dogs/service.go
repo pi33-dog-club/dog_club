@@ -104,8 +104,8 @@ func validateCreate(in *CreateInput, now time.Time) error {
 	if in.Nickname == "" || !validText(in.Nickname, 100) {
 		fields = append(fields, FieldError{"nickname", "Укажите кличку длиной до 100 символов."})
 	}
-	if !dateValid(in.DateOfBirth, now) {
-		fields = append(fields, FieldError{"date_of_birth", "Укажите дату рождения YYYY-MM-DD не позднее текущей даты UTC."})
+	if !dateValid(in.DateOfBirth, now) || in.DateOfBirth < "1900-01-01" {
+		fields = append(fields, FieldError{"date_of_birth", "Укажите дату рождения от 1900-01-01 до текущей даты UTC в формате YYYY-MM-DD."})
 	}
 	if in.Identifier.Number == "" || !validText(in.Identifier.Number, 100) {
 		fields = append(fields, FieldError{"identifier.number", "Укажите непустой номер идентификатора длиной до 100 символов."})
@@ -122,13 +122,15 @@ func validateCreate(in *CreateInput, now time.Time) error {
 		}
 	}
 	for _, v := range []struct {
-		name  string
-		value *float64
-	}{{"height_cm", in.HeightCM}, {"weight_kg", in.WeightKG}} {
+		name    string
+		value   *float64
+		max     float64
+		message string
+	}{{"height_cm", in.HeightCM, 150, "Укажите рост от 0.01 до 150 см, не более двух знаков после точки."}, {"weight_kg", in.WeightKG, 200, "Укажите вес от 0.01 до 200 кг, не более двух знаков после точки."}} {
 		if v.value != nil {
 			x := *v.value
-			if math.IsNaN(x) || math.IsInf(x, 0) || x < 0.01 || x > 99999.99 || math.Abs(x*100-math.Round(x*100)) > 1e-7 {
-				fields = append(fields, FieldError{v.name, "Укажите положительное число до 99999.99, не более двух знаков после точки."})
+			if math.IsNaN(x) || math.IsInf(x, 0) || x < 0.01 || x > v.max || math.Abs(x*100-math.Round(x*100)) > 1e-7 {
+				fields = append(fields, FieldError{v.name, v.message})
 			}
 		}
 	}

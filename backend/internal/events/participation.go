@@ -332,7 +332,7 @@ func (s *Service) Qualify(ctx context.Context, p auth.Principal, eventID int32, 
 		return Registration{}, err
 	}
 	if in.Decision != "approved" && in.Decision != "rejected" {
-		return Registration{}, invalid("decision", "Выберите approved или rejected.")
+		return Registration{}, invalid("decision", "Выберите решение: подтвердить или отклонить квалификацию.")
 	}
 	return with(ctx, s, p, []string{"expert"}, func(ctx context.Context, q *repository, a scope) (Registration, error) {
 		e, err := s.eventAccess(ctx, q, a, eventID)

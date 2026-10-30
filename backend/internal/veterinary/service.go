@@ -490,7 +490,7 @@ func validateClearance(in *ClearanceInput) error {
 		return invalid("examination_id", "Выберите осмотр этой собаки.")
 	}
 	if in.Purpose != "events" && in.Purpose != "breeding" {
-		return invalid("purpose", "Выберите events или breeding.")
+		return invalid("purpose", "Выберите назначение заключения: мероприятия или вязка.")
 	}
 	switch in.Decision {
 	case "allowed":
@@ -508,7 +508,7 @@ func validateClearance(in *ClearanceInput) error {
 			return invalid("decision", "Срок и основания вакцинации указываются только для разрешения.")
 		}
 	default:
-		return invalid("decision", "Выберите allowed, denied или not_assessed.")
+		return invalid("decision", "Выберите решение: допущена, не допущена или не оценено.")
 	}
 	seen := map[int32]bool{}
 	for _, id := range in.VaccinationIDs {

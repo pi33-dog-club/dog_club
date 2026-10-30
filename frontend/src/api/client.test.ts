@@ -61,6 +61,11 @@ describe('problem helpers', () => {
     expect(errorMessage(new ApiError(0, null))).toMatch(/Нет связи/);
   });
 
+  it('does not hide a domain conflict behind the generic concurrency message', () => {
+    const error = new ApiError(409, { type: 'about:blank', title: 'Conflict', status: 409, code: 'dog_conflict', detail: 'Идентификатор уже используется.', request_id: 'r' });
+    expect(errorMessage(error)).toBe('Идентификатор уже используется.');
+  });
+
   it('keeps the first message per field', () => {
     const error = new ApiError(422, {
       type: 'about:blank',

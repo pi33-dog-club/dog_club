@@ -88,7 +88,10 @@ describe('veterinary', () => {
     await userEvent.selectOptions(within(dialog).getByLabelText('Препарат'), 'Комплексная вакцина');
     expect(within(dialog).getByText('Следующая доза этого препарата не раньше 12.03.2099.')).toBeTruthy();
     await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
-    expect(await within(dialog).findByText('Окно прежней дозы до 12.03.2099.')).toBeTruthy();
+    const date = within(dialog).getByLabelText('Дата прививки');
+    await waitFor(() => expect(date.getAttribute('aria-invalid')).toBe('true'));
+    const errorID = date.getAttribute('aria-describedby')!.split(' ').at(-1)!;
+    expect(document.getElementById(errorID)?.textContent).toBe('Окно прежней дозы до 12.03.2099.');
     const lookup = calls.find((call) => call.url.includes('/veterinary/dogs'))!;
     expect(new URL(lookup.url).searchParams.get('after')).toBe('6');
   });

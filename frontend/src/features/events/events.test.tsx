@@ -155,6 +155,72 @@ describe('events', () => {
     });
   });
 
+  it('explains opening registration and shows the server reason when it fails', async () => {
+    mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/events/8': () => json(event({ status: 'draft', classes: [] })),
+      'GET /api/v1/event-experts': () => json([]),
+      'POST /api/v1/events/8/state': () => json({
+        type: 'about:blank', title: 'Unprocessable Entity', status: 422,
+        code: 'validation_failed', detail: 'Проверьте значения полей.', request_id: 'state-test',
+        errors: [{ field: 'classes', code: 'invalid', message: 'Добавьте хотя бы один действующий класс.' }],
+      }, 422),
+    });
+    renderApp('/events/8');
+    await userEvent.click(await screen.findByRole('button', { name: 'Открыть запись на мероприятие' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/Участники смогут записываться на это мероприятие/)).toBeTruthy();
+    expect(within(dialog).getByRole('link', { name: 'заполнить данные мероприятия' }).getAttribute('href')).toBe('/events/8/edit');
+    expect(within(dialog).getByRole('link', { name: 'добавить или включить класс в программе' }).getAttribute('href')).toBe('/events/8?tab=program');
+    await userEvent.type(within(dialog).getByLabelText('Причина'), 'Начало приёма заявок');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Открыть запись на мероприятие' }));
+    expect(await within(dialog).findByText('Добавьте хотя бы один действующий класс.')).toBeTruthy();
+  });
+
+  it('explains why class requirements need an expert and saves after correction', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/events/8': () => json(event({ status: 'draft', classes: [] })),
+      'GET /api/v1/event-experts': () => json([]),
+      'POST /api/v1/events/8/classes': () => json(juniors, 201),
+    });
+    renderApp('/events/8?tab=program');
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить класс' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByText(/Прежние подтверждения/)).toBeNull();
+    await userEvent.type(within(dialog).getByLabelText('Название'), 'Юниоры');
+    await userEvent.type(within(dialog).getByLabelText('Требования'), 'Базовые команды');
+    await userEvent.type(within(dialog).getByLabelText('Причина'), 'Настройка класса');
+    expect(within(dialog).getByText('Для заполненных требований включите решение эксперта по квалификации.')).toBeTruthy();
+    expect((within(dialog).getByRole('button', { name: 'Сохранить' }) as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(within(dialog).getByLabelText('Нужно решение эксперта по квалификации'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/classes'))).toBe(true));
+    expect(await calls.find((call) => call.method === 'POST' && call.url.endsWith('/classes'))!.json()).toMatchObject({
+      name: 'Юниоры', min_age_months: null, max_age_months: null,
+      requirements: 'Базовые команды', requires_expert: true, enabled: true, version: 6,
+    });
+  });
+
+  it('shows class validation details returned by the server', async () => {
+    mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/events/8': () => json(event({ status: 'draft', classes: [] })),
+      'POST /api/v1/events/8/classes': () => json({
+        type: 'about:blank', title: 'Unprocessable Entity', status: 422,
+        code: 'validation_failed', detail: 'Проверьте значения полей.', request_id: 'class-test',
+        errors: [{ field: 'class', code: 'invalid', message: 'Укажите название до 100 и требования до 2000 символов.' }],
+      }, 422),
+    });
+    renderApp('/events/8?tab=program');
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить класс' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText('Название'), 'Юниоры');
+    await userEvent.type(within(dialog).getByLabelText('Причина'), 'Настройка класса');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    expect(await within(dialog).findByText('Укажите название до 100 и требования до 2000 символов.')).toBeTruthy();
+  });
+
   it('keeps the attendance snapshot of an attended dog after its card changed', async () => {
     mockFetch({
       'POST /api/v1/auth/refresh': () => json(credentialsFor('leader')),

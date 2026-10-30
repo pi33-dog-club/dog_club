@@ -20,7 +20,7 @@ type SelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'children'> & {
 
 export function SelectField({ label, options, placeholder, hint, error, className, ...rest }: SelectProps) {
   return (
-    <Field label={label} hint={hint} error={error}>
+    <Field label={label} hint={hint} error={error} required={rest.required}>
       {({ id, describedBy, invalid }) => (
         <span className={styles.selectWrap}>
           <select id={id} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={clsx(styles.control, styles.select, className)} {...rest}>

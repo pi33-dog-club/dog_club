@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { setSession } from '../../api/session';
@@ -35,8 +35,55 @@ describe('members', () => {
     renderApp('/me');
     expect(await screen.findByRole('heading', { name: 'Мария Иванова' })).toBeTruthy();
     expect(screen.getByText('+7 900 000-00-00')).toBeTruthy();
+    expect(screen.getByText('Номер карточки')).toBeTruthy();
+    expect(screen.getByText('№ 3')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Добавить контакт' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Изменить' })).toBeNull();
+  });
+
+  it('rejects an invalid phone locally and allows saving after correction', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/member-dictionaries': () => json(memberDictionaries),
+      'GET /api/v1/members/3': () => json(member()),
+      'POST /api/v1/members/3/contacts': () => json(member({ version: 3 })),
+    });
+    renderApp('/members/3');
+    await userEvent.click(await screen.findByRole('button', { name: 'Добавить контакт' }));
+    const dialog = screen.getByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByLabelText('Тип'), 'Телефон');
+    const input = within(dialog).getByLabelText('Значение');
+    await userEvent.type(input, '123abc4567');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
+    const errorID = input.getAttribute('aria-describedby')!.split(' ').at(-1)!;
+    expect(document.getElementById(errorID)?.textContent).toContain('Укажите телефон с 7–15 цифрами');
+    expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contacts'))).toBe(false);
+    await userEvent.clear(input);
+    await userEvent.type(input, '+7 (900) 123-45-67');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url.endsWith('/contacts'))).toBe(true));
+  });
+
+  it('explains invalid birth and membership dates without sending changes', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/member-dictionaries': () => json(memberDictionaries),
+      'GET /api/v1/members/3': () => json(member()),
+    });
+    renderApp('/members/3/edit');
+    const birth = await screen.findByLabelText('Дата рождения');
+    fireEvent.change(birth, { target: { value: '9999-01-01' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(await screen.findByText('Дата рождения не может быть в будущем.')).toBeTruthy();
+    fireEvent.change(birth, { target: { value: '1899-12-31' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(await screen.findByText('Укажите существующую дату рождения с 01.01.1900 по сегодня.')).toBeTruthy();
+    fireEvent.change(birth, { target: { value: '1990-02-01' } });
+    fireEvent.change(screen.getByLabelText('В клубе с'), { target: { value: '1989-01-01' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(await screen.findByText('Дата вступления не может быть раньше даты рождения.')).toBeTruthy();
+    expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
   });
 
   it('explains an inactive membership instead of an empty card', async () => {

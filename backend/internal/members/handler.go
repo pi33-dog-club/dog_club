@@ -2,12 +2,14 @@ package members
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"dogclub.local/backend/internal/auth"
 	"dogclub.local/backend/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 )
 
 type Handler struct {
@@ -49,6 +51,8 @@ func writeError(w http.ResponseWriter, r *http.Request, err error) {
 		for _, f := range validation.Fields {
 			fields = append(fields, httpapi.FieldError{Field: f.Field, Code: "invalid", Message: f.Message})
 		}
+		slog.WarnContext(r.Context(), "members: ошибка заполнения полей",
+			"request_id", chimiddleware.GetReqID(r.Context()), "code", "validation_failed", "errors", fields)
 		httpapi.WriteProblem(w, r, httpapi.ValidationProblem(fields...))
 	case errors.Is(err, ErrNotFound):
 		httpapi.WriteProblem(w, r, httpapi.NewProblem(404, "not_found", "Запись не найдена."))

@@ -12,6 +12,11 @@ const actions: Record<DogChange['action'], string> = {
   title_recorded: 'Записан титул',
   title_corrected: 'Исправлена запись титула',
   title_record_corrected: 'Запись титула отмечена ошибочной',
+  photo_set: 'Фотография добавлена или заменена',
+  photo_removed: 'Фотография удалена',
+  registration_date_confirmed: 'Уточнена дата регистрации',
+  puppy_registered: 'Щенок зарегистрирован',
+  litter_parents_set: 'Указаны родители по помёту',
 };
 
 const fields: Array<[keyof Dog, string]> = [
@@ -37,7 +42,7 @@ export function changedFields(before: Dog | null, after: Dog): string[] {
 }
 
 export function actorLabel(role: string): string {
-  return roleLabels[role as Role] ?? role;
+  return roleLabels[role as Role] ?? 'Неизвестный профиль';
 }
 
 export function DogHistoryTab({ dogID }: { dogID: number }) {
@@ -55,7 +60,7 @@ export function DogHistoryTab({ dogID }: { dogID: number }) {
             const changed = changedFields(change.before, change.after);
             return {
               id: change.id,
-              title: actions[change.action] ?? change.action,
+              title: actions[change.action] ?? 'Запись изменена',
               version: change.before ? `версия ${change.before.version} → ${change.after.version}` : `версия ${change.after.version}`,
               details: changed.length > 0 && change.action === 'dog_updated' ? `Изменено: ${changed.join(', ')}` : undefined,
               meta: `${actorLabel(change.actor_role)} · ${formatDateTime(change.changed_at)}`,

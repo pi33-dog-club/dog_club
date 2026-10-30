@@ -35,6 +35,31 @@ func TestDogValidationAndMeasurements(t *testing.T) {
 		}
 	}
 }
+func TestDogBirthAndMeasurementLimits(t *testing.T) {
+	now := time.Date(2026, 10, 17, 0, 0, 0, 0, time.UTC)
+	in := CreateInput{Nickname: "Dog", DateOfBirth: "1900-01-01", Identifier: IdentifierInput{TypeID: 1, Number: "123"}, StatusID: 1, BreedID: 1, CoatColorID: 1, SexID: 1, OwnerIDs: []int32{1}}
+	height, weight := 150.0, 200.0
+	in.HeightCM, in.WeightKG = &height, &weight
+	if err := validateCreate(&in, now); err != nil {
+		t.Fatalf("boundary rejected: %v", err)
+	}
+	for _, birth := range []string{"1899-12-31", "2026-02-30", "2026-10-18"} {
+		in.DateOfBirth = birth
+		if validateCreate(&in, now) == nil {
+			t.Fatalf("invalid birth accepted: %s", birth)
+		}
+	}
+	in.DateOfBirth = "2020-01-01"
+	height = 150.01
+	if validateCreate(&in, now) == nil {
+		t.Fatal("excessive height accepted")
+	}
+	height, weight = 150, 200.01
+	if validateCreate(&in, now) == nil {
+		t.Fatal("excessive weight accepted")
+	}
+}
+
 func TestParentsAndPatchSemantics(t *testing.T) {
 	if normalizeParent(nil, "mother") != nil {
 		t.Fatal("unknown parent rejected")

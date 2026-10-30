@@ -1362,6 +1362,11 @@ components:
                         - title_recorded
                         - title_corrected
                         - title_record_corrected
+                        - photo_set
+                        - photo_removed
+                        - registration_date_confirmed
+                        - puppy_registered
+                        - litter_parents_set
                     type: string
                 actor_profile_id:
                     type: string
@@ -1427,10 +1432,11 @@ components:
                     minimum: 1
                     type: integer
                 date_of_birth:
+                    description: Дата рождения с 1900-01-01 по текущую дату UTC.
                     format: date
                     type: string
                 height_cm:
-                    maximum: 99999.99
+                    maximum: 150
                     minimum: 0.01
                     multipleOf: 0.01
                     type:
@@ -1460,7 +1466,7 @@ components:
                     minimum: 1
                     type: integer
                 weight_kg:
-                    maximum: 99999.99
+                    maximum: 200
                     minimum: 0.01
                     multipleOf: 0.01
                     type:
@@ -1750,10 +1756,11 @@ components:
                     minimum: 1
                     type: integer
                 date_of_birth:
+                    description: Дата рождения с 1900-01-01 по текущую дату UTC.
                     format: date
                     type: string
                 height_cm:
-                    maximum: 99999.99
+                    maximum: 150
                     minimum: 0.01
                     multipleOf: 0.01
                     type:
@@ -1779,7 +1786,7 @@ components:
                     minimum: 1
                     type: integer
                 weight_kg:
-                    maximum: 99999.99
+                    maximum: 200
                     minimum: 0.01
                     multipleOf: 0.01
                     type:
@@ -3193,7 +3200,7 @@ components:
             additionalProperties: false
             properties:
                 date_of_birth:
-                    description: Дата YYYY-MM-DD, не позднее текущей даты UTC; null означает отсутствие даты.
+                    description: Дата рождения YYYY-MM-DD с 1900-01-01 по текущую дату UTC; null означает отсутствие даты.
                     format: date
                     type:
                         - string
@@ -3291,7 +3298,7 @@ components:
             minProperties: 2
             properties:
                 date_of_birth:
-                    description: Дата YYYY-MM-DD, не позднее текущей даты UTC; null означает отсутствие даты.
+                    description: Дата рождения YYYY-MM-DD с 1900-01-01 по текущую дату UTC; null означает отсутствие даты.
                     format: date
                     type:
                         - string

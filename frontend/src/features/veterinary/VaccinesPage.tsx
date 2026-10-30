@@ -173,10 +173,14 @@ function VaccineFields({ draft, onChange, error }: { draft: Draft; onChange: (dr
       <TextField
         label={label}
         inputMode="numeric"
+        type="number"
+        min={1}
+        max={2147483647}
+        step={1}
         required
         value={draft[key].value}
         onChange={(event) => onChange({ ...draft, [key]: { ...draft[key], value: event.target.value } })}
-        error={errors[`${key}.value`] ?? errors[key]}
+        error={draft[key].value && (!positive(draft[key].value) || Number(draft[key].value) > 2147483647) ? 'Укажите целое число от 1 до 2147483647.' : errors[`${key}.value`] ?? errors[key]}
       />
       <SelectField
         label="Единица"

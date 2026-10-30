@@ -30,7 +30,7 @@ interface SlotDraft {
 }
 
 const months = (value: string) => (value.trim() === '' ? null : Number(value));
-const badMonths = (value: string) => value.trim() !== '' && !/^\d{1,4}$/.test(value.trim());
+const badMonths = (value: string) => value.trim() !== '' && (!/^\d{1,4}$/.test(value.trim()) || Number(value) > 1200);
 
 export function ProgramTab({ event, onReload }: { event: Event; onReload: () => void }) {
   const { profile } = useSession();
@@ -88,8 +88,9 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
     setSlot(item);
   };
 
-  const ageError = badMonths(classDraft.min) || badMonths(classDraft.max) ? 'Целое число месяцев.' : undefined;
+  const ageError = badMonths(classDraft.min) || badMonths(classDraft.max) ? 'Укажите целое число от 0 до 1200 месяцев.' : undefined;
   const ageOrder = !ageError && classDraft.min && classDraft.max && Number(classDraft.min) > Number(classDraft.max) ? 'Минимум больше максимума.' : undefined;
+  const expertError = classDraft.requirements.trim() && !classDraft.requires_expert ? 'Для заполненных требований включите решение эксперта по квалификации.' : undefined;
   const slotOrder = slotDraft.starts && slotDraft.ends && slotDraft.ends < slotDraft.starts ? 'Окончание раньше начала.' : undefined;
 
   const saveClass = (reason: string) => {
@@ -236,10 +237,11 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
 
       <ReasonDialog
         open={klass !== null}
+        showFieldErrors
         title={klass === 'new' ? 'Новый класс' : 'Исправить класс'}
-        description="Прежние подтверждения эксперта по этому классу станут неактуальными."
+        description={klass === 'new' ? 'Укажите название группы участников. Возраст и требования необязательны. Если заданы требования, их выполнение должен подтвердить эксперт.' : 'Изменение класса сделает прежние подтверждения эксперта по нему неактуальными.'}
         confirmLabel="Сохранить"
-        ready={Boolean(classDraft.name.trim() && !ageError && !ageOrder)}
+        ready={Boolean(classDraft.name.trim() && !ageError && !ageOrder && !expertError)}
         onReload={onReload}
         onClose={() => setClass(null)}
         onConfirm={saveClass}
@@ -258,14 +260,16 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
             inputMode="numeric"
             value={classDraft.min}
             onChange={(change) => setClassDraft({ ...classDraft, min: change.target.value })}
-            error={ageError ?? errors.min_age_months}
+            error={ageError ?? errors.min_age_months ?? errors.age}
+            hint="Необязательно. От 0 до 1200 месяцев."
           />
           <TextField
             label="Возраст до, мес."
             inputMode="numeric"
             value={classDraft.max}
             onChange={(change) => setClassDraft({ ...classDraft, max: change.target.value })}
-            error={ageOrder ?? errors.max_age_months}
+            error={ageError ?? ageOrder ?? errors.max_age_months ?? errors.age}
+            hint="Необязательно. Не меньше нижней границы."
           />
         </div>
         <TextArea
@@ -273,12 +277,14 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
           maxLength={2000}
           value={classDraft.requirements}
           onChange={(change) => setClassDraft({ ...classDraft, requirements: change.target.value })}
-          hint="Правила конкретного мероприятия: клубных нормативов в системе нет."
+          hint="Необязательно. Если заполнено, нужно включить решение эксперта ниже."
+          error={errors.requirements}
         />
         <label className={styles.check}>
           <input type="checkbox" checked={classDraft.requires_expert} onChange={(change) => setClassDraft({ ...classDraft, requires_expert: change.target.checked })} />
           Нужно решение эксперта по квалификации
         </label>
+        {(expertError || errors.requires_expert) && <p role="alert">{expertError || errors.requires_expert}</p>}
         <label className={styles.check}>
           <input type="checkbox" checked={classDraft.enabled} onChange={(change) => setClassDraft({ ...classDraft, enabled: change.target.checked })} />
           Класс включён
@@ -287,6 +293,7 @@ export function ProgramTab({ event, onReload }: { event: Event; onReload: () => 
 
       <ReasonDialog
         open={slot !== null}
+        showFieldErrors
         title={slot === 'new' ? 'Новое выступление' : 'Исправить выступление'}
         description={`Время по часам места проведения: ${zoneCaption(event.timezone, event.starts_at)}. Перенос пересчитывает проверки участников.`}
         confirmLabel="Сохранить"

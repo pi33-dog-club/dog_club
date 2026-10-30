@@ -35,7 +35,7 @@ export function sessionTime(session: TrainingSession): string {
 export function MedicalChip({ check }: { check: MedicalCheck | null }) {
   if (!check) return <Chip tone="dashed">Не проверялся</Chip>;
   const item = (decisions as Record<string, { label: string; tone: ChipTone } | undefined>)[check.decision];
-  return <Chip tone={item?.tone ?? 'sand'}>{item?.label ?? check.decision}</Chip>;
+  return <Chip tone={item?.tone ?? 'sand'}>{item?.label ?? 'Решение требует уточнения'}</Chip>;
 }
 
 /** Decision and reason codes only: no clinical text reaches the training journal. */
@@ -48,7 +48,7 @@ export function MedicalCheckView({ title, check }: { title: string; check: Medic
       {check && check.reasons.length > 0 && (
         <ul className={styles.reasons}>
           {check.reasons.map((code) => (
-            <li key={code}>{(reasons as Record<string, string | undefined>)[code] ?? code}</li>
+            <li key={code}>{(reasons as Record<string, string | undefined>)[code] ?? 'Причина медицинского решения требует уточнения у ветеринара.'}</li>
           ))}
         </ul>
       )}

@@ -50,6 +50,10 @@ func validateCard(in *CreateInput, now time.Time) error {
 			fields = append(fields, FieldError{item.field, "Укажите существующую дату YYYY-MM-DD, не позднее текущей даты UTC."})
 			continue
 		}
+		if item.field == "date_of_birth" && *item.value < "1900-01-01" {
+			fields = append(fields, FieldError{item.field, "Дата рождения должна быть не ранее 1900-01-01."})
+			continue
+		}
 		*item.target = date
 	}
 	if !birth.IsZero() && !joined.IsZero() && birth.After(joined) {

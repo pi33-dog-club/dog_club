@@ -23,7 +23,7 @@ export const transitions: Record<EventStatus, Target[]> = {
 };
 
 export const transitionLabels: Record<Target, string> = {
-  open: 'Открыть запись',
+  open: 'Открыть запись на мероприятие',
   closed: 'Закрыть запись',
   in_progress: 'Начать мероприятие',
   completed: 'Завершить',

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { setSession } from '../../api/session';
@@ -57,6 +57,25 @@ describe('dog card', () => {
     expect(calls.some((call) => call.url.includes('/members'))).toBe(false);
   });
 
+  it('translates registration and litter actions returned in the dog history', async () => {
+    const actions = ['registration_date_confirmed', 'puppy_registered', 'litter_parents_set'];
+    mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/dog-dictionaries': () => json(dogDictionaries),
+      'GET /api/v1/dogs/7': () => json(dog()),
+      'GET /api/v1/dogs/7/photo': () => problem(404, 'not_found', 'Фото нет.'),
+      'GET /api/v1/dogs/7/history': () => json({ changes: actions.map((action, index) => ({
+        id: index + 1, action, actor_user_id: 'u1', actor_profile_id: 'p-staff', actor_role: 'staff',
+        reason: '', before: dog(), after: dog({ version: 5 }), request_id: 'r', changed_at: '2026-10-20T10:00:00Z',
+      })), next_after: null }),
+    });
+    renderApp('/dogs/7?tab=history');
+    expect(await screen.findByText('Уточнена дата регистрации')).toBeTruthy();
+    expect(screen.getByText('Щенок зарегистрирован')).toBeTruthy();
+    expect(screen.getByText('Указаны родители по помёту')).toBeTruthy();
+    for (const action of actions) expect(screen.queryByText(action)).toBeNull();
+  });
+
   it('offers a reload when another user changed the card', async () => {
     mockFetch({
       'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
@@ -101,5 +120,51 @@ describe('dog card', () => {
       mother: { dog_id: 9 },
       father: { dog_id: 5 },
     });
+  });
+});
+
+
+describe('dog form validation', () => {
+  it.each(['0', '-1', '201', '100000', '1,234', 'abc', '9'.repeat(310)])('rejects invalid measurements: %s', async (value) => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/dog-dictionaries': () => json(dogDictionaries),
+      'GET /api/v1/dogs/7': () => json(dog()),
+    });
+    renderApp('/dogs/7/edit');
+    fireEvent.change(await screen.findByLabelText('Рост, см'), { target: { value } });
+    fireEvent.change(screen.getByLabelText('Вес, кг'), { target: { value } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(await screen.findByText('Рост, см: укажите число от 0,01 до 150, не более двух знаков после запятой.')).toBeTruthy();
+    expect(screen.getByText('Вес, кг: укажите число от 0,01 до 200, не более двух знаков после запятой.')).toBeTruthy();
+    expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
+  });
+
+  it('saves valid decimal measurements', async () => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/dog-dictionaries': () => json(dogDictionaries),
+      'GET /api/v1/dogs/7': () => json(dog()),
+      'PATCH /api/v1/dogs/7': () => json(dog({ height_cm: 55.5, weight_kg: 14.25, version: 5 })),
+    });
+    renderApp('/dogs/7/edit');
+    fireEvent.change(await screen.findByLabelText('Рост, см'), { target: { value: '55,5' } });
+    fireEvent.change(screen.getByLabelText('Вес, кг'), { target: { value: '14.25' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PATCH')).toBe(true));
+    expect(await calls.find((call) => call.method === 'PATCH')!.json()).toEqual({ version: 4, height_cm: 55.5, weight_kg: 14.25 });
+  });
+
+  it.each(['1899-12-31', '9999-01-01'])('rejects birth date outside the allowed interval: %s', async (birth) => {
+    const { calls } = mockFetch({
+      'POST /api/v1/auth/refresh': () => json(credentialsFor('staff')),
+      'GET /api/v1/dog-dictionaries': () => json(dogDictionaries),
+      'GET /api/v1/dogs/7': () => json(dog()),
+    });
+    renderApp('/dogs/7/edit');
+    fireEvent.change(await screen.findByLabelText('Дата рождения'), { target: { value: birth } });
+    await userEvent.click(screen.getByRole('button', { name: 'Сохранить' }));
+    expect(await screen.findByText('Укажите существующую дату рождения с 01.01.1900 по сегодня.')).toBeTruthy();
+    expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
   });
 });

@@ -208,7 +208,7 @@ function LitterCard({ litter, onReload }: { litter: Litter; onReload: () => void
         onConfirm={(reason) => run(() => breedingApi.correctLitter(litter.id, { version: litter.version, date_of_birth: birth, total_puppies: Number(total), reason }))}
       >
         <TextField label="Дата рождения" type="date" required max={todayUTC()} value={birth} onChange={(event) => setBirth(event.target.value)} error={errors.date_of_birth} />
-        <TextField label="Число щенков" inputMode="numeric" required value={total} onChange={(event) => setTotal(event.target.value)} error={errors.total_puppies} />
+        <TextField label="Число щенков" type="number" min={1} max={2147483647} step={1} inputMode="numeric" required value={total} onChange={(event) => setTotal(event.target.value)} error={errors.total_puppies} />
       </ReasonDialog>
 
       <FormDialog

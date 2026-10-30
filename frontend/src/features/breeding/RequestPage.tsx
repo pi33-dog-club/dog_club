@@ -225,7 +225,7 @@ export function PairCheck({ assessment, title }: { assessment: Assessment; title
         <div className={styles.chips}>
           {assessment.blocking_reasons.map((code) => (
             <Chip key={code} tone="pink">
-              {blockingReasons[code] ?? code}
+              {blockingReasons[code] ?? 'Причина недопуска пары требует уточнения у эксперта.'}
             </Chip>
           ))}
         </div>
@@ -234,7 +234,7 @@ export function PairCheck({ assessment, title }: { assessment: Assessment; title
         <div className={styles.chips}>
           {assessment.warnings.map((code) => (
             <Chip key={code} tone="sun">
-              {warnings[code] ?? code}
+              {warnings[code] ?? 'Условия вязки требуют уточнения у эксперта.'}
             </Chip>
           ))}
         </div>

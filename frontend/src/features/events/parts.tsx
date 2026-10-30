@@ -92,7 +92,7 @@ export function EventHistory({ target }: { target: HistoryTarget }) {
         <Timeline
           entries={changes.map((change) => ({
             id: change.id,
-            title: historyActions[`${change.entity}:${change.action}`] ?? change.action,
+            title: historyActions[`${change.entity}:${change.action}`] ?? 'Запись изменена',
             meta: formatDateTime(change.changed_at),
             reason: change.reason || undefined,
           }))}

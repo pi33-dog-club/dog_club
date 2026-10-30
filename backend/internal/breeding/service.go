@@ -529,7 +529,7 @@ func (s *Service) Decide(ctx context.Context, p auth.Principal, id int64, in Dec
 		return Request{}, err
 	}
 	if in.Decision != "approved" && in.Decision != "rejected" {
-		return Request{}, invalid("decision", "Выберите approved или rejected.")
+		return Request{}, invalid("decision", "Выберите решение: одобрить или отклонить заявку.")
 	}
 	return with(ctx, s, p, []string{"expert"}, func(ctx context.Context, q *repository, p auth.Principal) (Request, error) {
 		before, err := q.request(ctx, id)
@@ -655,7 +655,7 @@ func (s *Service) UpdateMating(ctx context.Context, p auth.Principal, id int64, 
 		return Mating{}, invalid("date", "Укажите фактическую дату не позднее сегодня.")
 	}
 	if in.Outcome != "unknown" && in.Outcome != "no_litter" && in.Outcome != "litter" {
-		return Mating{}, invalid("outcome", "Выберите unknown, no_litter или litter.")
+		return Mating{}, invalid("outcome", "Выберите исход вязки: неизвестен, без помёта или помёт.")
 	}
 	return with(ctx, s, p, []string{"staff"}, func(ctx context.Context, q *repository, p auth.Principal) (Mating, error) {
 		before, err := q.mating(ctx, id)

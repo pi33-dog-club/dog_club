@@ -3,11 +3,10 @@ import { Download } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, call } from '../../api/client';
 import { downloadFile } from '../../api/files';
-import { errorMessage } from '../../api/problem';
 import { roleLabels } from '../../app/navigation';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, formatDateTime, todayUTC } from '../../shared/format';
-import { Alert, Button, Card, Fact, Facts, Loading, PageHeader, QueryError, Table, TextField, fieldStyles } from '../../shared/ui';
+import { Button, Card, Fact, Facts, Loading, PageHeader, ProblemAlert, QueryError, Table, TextField, fieldStyles } from '../../shared/ui';
 import styles from './reports.module.css';
 
 export interface Period {
@@ -152,7 +151,7 @@ function Export({ period }: { period: Period }) {
           CSV
         </Button>
       </div>
-      {error ? <Alert tone="error">{errorMessage(error)}</Alert> : null}
+      {error ? <ProblemAlert error={error} /> : null}
       <p className={styles.note}>Файл скачивается и на сервере не хранится.</p>
     </Card>
   );

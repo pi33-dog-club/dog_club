@@ -1,7 +1,6 @@
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { errorMessage } from '../../api/problem';
 import { useSession } from '../../auth/AuthProvider';
 import { formatDate, formatDateTime } from '../../shared/format';
 import {
@@ -15,6 +14,7 @@ import {
   Facts,
   Loading,
   PageHeader,
+  ProblemAlert,
   QueryError,
   ReasonDialog,
   SelectField,
@@ -191,7 +191,7 @@ function FilesTable({ files }: { files: DocumentFile[] }) {
           ))}
         </tbody>
       </Table>
-      {error ? <Alert tone="error">{errorMessage(error)}</Alert> : null}
+      {error ? <ProblemAlert error={error} /> : null}
       {files.some((file) => file.source_changed) && (
         <p className={styles.note}>После выпуска формы исходные сведения изменились. Прежний PDF не меняется; для актуальной версии сформируйте новый.</p>
       )}
@@ -339,7 +339,7 @@ function DocumentHistory({ id }: { id: number }) {
         <Timeline
           entries={changes.map((change) => ({
             id: change.id,
-            title: historyActions[change.action] ?? change.action,
+            title: historyActions[change.action] ?? 'Запись изменена',
             meta: `${formatDateTime(change.changed_at)} · версия ${change.version}`,
             reason: change.reason || undefined,
           }))}

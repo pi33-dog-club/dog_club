@@ -51,7 +51,7 @@ function SessionCard({ session, onReload }: { session: TrainingSession; onReload
       )}
       {session.warnings.map((code) => (
         <Alert key={code} tone="warning">
-          {warnings[code] ?? code}
+          {warnings[code] ?? 'Запись занятия требует проверки сотрудником клуба.'}
         </Alert>
       ))}
       <Facts>
@@ -118,7 +118,7 @@ function SessionHistory({ session }: { session: TrainingSession }) {
         <Timeline
           entries={changes.map((change) => ({
             id: change.id,
-            title: historyActions[change.action] ?? change.action,
+            title: historyActions[change.action] ?? 'Запись изменена',
             meta: formatDateTime(change.changed_at),
             reason: change.reason || undefined,
           }))}

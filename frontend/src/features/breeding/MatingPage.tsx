@@ -154,7 +154,7 @@ function MatingCard({ mating, onReload }: { mating: Mating; onReload: () => void
           onChange={(event) => setBirth(event.target.value)}
           error={errors.date_of_birth}
         />
-        <TextField label="Число щенков" inputMode="numeric" required value={total} onChange={(event) => setTotal(event.target.value)} error={errors.total_puppies} />
+        <TextField label="Число щенков" type="number" min={1} max={2147483647} step={1} inputMode="numeric" required value={total} onChange={(event) => setTotal(event.target.value)} error={errors.total_puppies} />
       </ReasonDialog>
     </>
   );

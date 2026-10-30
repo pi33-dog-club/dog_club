@@ -49,7 +49,7 @@ function SessionForm({ session, initialDog }: { session?: TrainingSession; initi
   const zones = commonZones.includes(zone) ? commonZones : [zone, ...commonZones];
   const now = toZonedInput(new Date().toISOString(), zone);
   const timeError = starts && ends && ends < starts ? 'Окончание раньше начала.' : ends && ends > now ? 'Занятие ещё не закончилось: журнал хранит только проведённые.' : undefined;
-  const ready = Boolean(dogID && typeID && starts && ends && !timeError && isZone(zone) && !inactive && (!linked || registrationID) && (!session || reason.trim()));
+  const ready = Boolean(dogID && typeID && result.trim() && starts && ends && !timeError && isZone(zone) && !inactive && (!linked || registrationID) && (!session || reason.trim()));
 
   if (grant.pending) return <Loading />;
   if (grant.typeIDs.length === 0) {
@@ -142,11 +142,12 @@ function SessionForm({ session, initialDog }: { session?: TrainingSession; initi
           </div>
           <TextArea
             label="Результат"
+            required
             maxLength={2000}
             value={result}
             onChange={(change) => setResult(change.target.value)}
             error={errors.result}
-            hint="Виден владельцу собаки. Без кадровых и клинических сведений."
+            hint="Опишите результат проведённого занятия. Виден владельцу собаки."
           />
           <label className={styles.toggle}>
             <input type="checkbox" checked={linked} onChange={(change) => setLinked(change.target.checked)} />

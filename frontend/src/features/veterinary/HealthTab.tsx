@@ -60,7 +60,7 @@ function AdmissionCard({ title, admission, vaccineName }: { title: string; admis
             const vaccine = vaccineName(reason.vaccination_id);
             return (
               <li key={`${reason.code}-${reason.vaccination_id ?? index}`}>
-                {reasons[reason.code] ?? reason.code}
+                {reasons[reason.code] ?? 'Причина медицинского решения требует уточнения у ветеринара.'}
                 {vaccine && ` «${vaccine}»`}
               </li>
             );

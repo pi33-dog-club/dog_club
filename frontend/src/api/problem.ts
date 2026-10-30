@@ -42,6 +42,7 @@ export function toApiError(status: number, body: unknown): ApiError {
 
 const fallback: Record<number, string> = {
   0: 'Нет связи с сервером. Проверьте подключение и повторите.',
+  422: 'Проверьте значения полей.',
   401: 'Сессия завершилась. Войдите снова.',
   403: 'В этом профиле нет доступа к действию.',
   404: 'Запись не найдена или недоступна.',
@@ -54,7 +55,6 @@ const fallback: Record<number, string> = {
 /** Human text for any thrown error; never shows raw technical details. */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.isConflict) return fallback[409]!;
     return error.problem?.detail ?? fallback[error.status] ?? 'Не удалось выполнить действие. Повторите позже.';
   }
   return 'Что-то пошло не так. Обновите страницу.';

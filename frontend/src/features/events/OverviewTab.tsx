@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useSession } from '../../auth/AuthProvider';
 import { pluralize } from '../../shared/format';
 import { Alert, Button, Card, Chip, EmptyState, ReasonDialog } from '../../shared/ui';
@@ -53,14 +54,23 @@ function StateCard({ event, onReload }: { event: Event; onReload: () => void }) 
         </div>
       )}
       {event.status === 'draft' && (
-        <p className={styles.note}>Для открытия записи нужны период, часовой пояс, аудитория и — при участии по классам — хотя бы один включённый класс.</p>
+        <p className={styles.note}>Для открытия записи нужны даты, часовой пояс, аудитория, площадка и — при участии по классам — хотя бы один включённый класс.</p>
       )}
       {next.includes('in_progress') && early && <p className={styles.note}>Начать можно с {formatZoned(event.starts_at, event.timezone)} по местному времени.</p>}
       <ReasonDialog
         open={target !== null}
+        showFieldErrors
         title={target ? transitionLabels[target] : ''}
         description={
-          target === 'cancelled' ? 'Отмену нельзя вернуть. Записи и результаты сохранятся в истории.' : 'Подтверждения квалификации при смене состояния не сбрасываются.'
+          target === 'open'
+            ? 'Участники смогут записываться на это мероприятие. Укажите причину открытия записи, например «Начало приёма заявок»: она сохранится в истории.'
+            : target === 'cancelled'
+              ? 'Отмену нельзя вернуть. Записи и результаты сохранятся в истории.'
+              : target === 'closed'
+                ? 'Приём новых участников будет закрыт. Уже поданные заявки сохранятся.'
+                : target === 'in_progress'
+                  ? 'Мероприятие перейдёт в состояние «Идёт». Можно будет отмечать явку участников.'
+                  : 'Мероприятие будет завершено. Изменение его данных станет недоступно.'
         }
         confirmLabel={target ? transitionLabels[target] : ''}
         confirmVariant={target === 'cancelled' ? 'danger' : 'save'}
@@ -70,7 +80,14 @@ function StateCard({ event, onReload }: { event: Event; onReload: () => void }) 
           await eventsApi.setState(event.id, { version: event.version, status: target!, reason });
           await saved();
         }}
-      />
+      >
+        {target === 'open' && (
+          <p>
+            Если мероприятие ещё не настроено: <Link to={`/events/${event.id}/edit`}>заполнить данные мероприятия</Link>
+            {event.uses_classes && <> или <Link to={`/events/${event.id}?tab=program`}>добавить или включить класс в программе</Link></>}.
+          </p>
+        )}
+      </ReasonDialog>
     </Card>
   );
 }

@@ -92,9 +92,15 @@ function DogForm({ dog }: { dog?: Dog }) {
     const height = parseMeasure(values.height_cm);
     const weight = parseMeasure(values.weight_kg);
     const problems: Record<string, string> = {};
-    if (Number.isNaN(height)) problems.height_cm = 'Укажите число, например 55,5.';
-    if (Number.isNaN(weight)) problems.weight_kg = 'Укажите число, например 14,25.';
+    for (const [field, value, max, label] of [['height_cm', height, 150, 'Рост, см'], ['weight_kg', weight, 200, 'Вес, кг']] as const) {
+      if (value !== null && (!Number.isFinite(value) || value < 0.01 || value > max || Math.abs(value * 100 - Math.round(value * 100)) > 1e-7)) {
+        problems[field] = `${label}: укажите число от 0,01 до ${max}, не более двух знаков после запятой.`;
+      }
+    }
+    if (!values.date_of_birth || values.date_of_birth < '1900-01-01' || values.date_of_birth > today) problems.date_of_birth = 'Укажите дату рождения с 01.01.1900 по сегодня.';
+    if (values.identifier_date && values.identifier_date < values.date_of_birth) problems['identifier.date'] = 'Дата идентификации не может быть раньше даты рождения.';
     if (!dog && owners.length === 0) problems.owner_ids = 'Выберите хотя бы одного владельца.';
+    setError(null);
     setLocal(problems);
     if (Object.keys(problems).length > 0) return;
 
@@ -155,7 +161,7 @@ function DogForm({ dog }: { dog?: Dog }) {
             <legend className={fieldStyles.legend}>Собака</legend>
             <div className={fieldStyles.row}>
               <TextField label="Кличка" required maxLength={100} value={values.nickname} onChange={set('nickname')} error={errors.nickname} />
-              <TextField label="Дата рождения" type="date" required max={today} value={values.date_of_birth} onChange={set('date_of_birth')} error={errors.date_of_birth} />
+              <TextField label="Дата рождения" type="date" required min="1900-01-01" max={today} onInvalid={() => setLocal((current) => ({ ...current, date_of_birth: 'Укажите существующую дату рождения с 01.01.1900 по сегодня.' }))} value={values.date_of_birth} onChange={set('date_of_birth')} error={errors.date_of_birth} />
             </div>
             <div className={fieldStyles.row}>
               <SelectField
@@ -197,8 +203,8 @@ function DogForm({ dog }: { dog?: Dog }) {
                 error={errors.status_id}
                 hint="Кроме «На учёте», статусы закрывают новые осмотры, прививки, занятия, вязки и мероприятия."
               />
-              <TextField label="Рост, см" inputMode="decimal" value={values.height_cm} onChange={set('height_cm')} error={errors.height_cm} hint="Необязательно." />
-              <TextField label="Вес, кг" inputMode="decimal" value={values.weight_kg} onChange={set('weight_kg')} error={errors.weight_kg} hint="Необязательно." />
+              <TextField label="Рост, см" inputMode="decimal" value={values.height_cm} onChange={set('height_cm')} error={errors.height_cm} hint="Необязательно. От 0,01 до 150 см." />
+              <TextField label="Вес, кг" inputMode="decimal" value={values.weight_kg} onChange={set('weight_kg')} error={errors.weight_kg} hint="Необязательно. От 0,01 до 200 кг." />
             </div>
           </fieldset>
           <fieldset className={fieldStyles.fieldset}>
@@ -229,6 +235,7 @@ function DogForm({ dog }: { dog?: Dog }) {
                 max={today}
                 value={values.identifier_date}
                 onChange={set('identifier_date')}
+                onInvalid={() => setLocal((current) => ({ ...current, 'identifier.date': 'Дата идентификации должна быть не раньше рождения и не позднее сегодняшней.' }))}
                 error={errors['identifier.date']}
                 hint="Необязательно."
               />

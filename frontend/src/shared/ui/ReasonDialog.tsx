@@ -14,6 +14,7 @@ interface FormDialogProps {
   confirmVariant?: ButtonVariant;
   /** False keeps the confirm button disabled, e.g. while a required field is empty. */
   ready?: boolean;
+  showFieldErrors?: boolean;
   children?: ReactNode;
   /** Offered on a version conflict: reload the record behind the dialog. */
   onReload?: () => void;
@@ -22,7 +23,7 @@ interface FormDialogProps {
 }
 
 /** Modal form: shows the API problem inline and closes only after success. */
-export function FormDialog({ open, title, description, confirmLabel, confirmVariant = 'save', ready = true, children, onReload, onSubmit, onClose }: FormDialogProps) {
+export function FormDialog({ open, title, description, confirmLabel, confirmVariant = 'save', ready = true, showFieldErrors = true, children, onReload, onSubmit, onClose }: FormDialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleID = useId();
   const [busy, setBusy] = useState(false);
@@ -65,6 +66,7 @@ export function FormDialog({ open, title, description, confirmLabel, confirmVari
           {error ? (
             <ProblemAlert
               error={error}
+              showFieldErrors={showFieldErrors}
               onReload={
                 onReload &&
                 (() => {
@@ -108,7 +110,7 @@ export function ReasonDialog({ open, ready = true, children, onConfirm, ...rest 
         required
         value={reason}
         onChange={(event) => setReason(event.target.value)}
-        hint="Сохранится в истории изменений. До 500 символов."
+        hint="Обязательно: объясните причину действия. Сохранится в истории изменений. До 500 символов."
         error={tooLong ? 'Сократите причину до 500 символов.' : undefined}
       />
     </FormDialog>

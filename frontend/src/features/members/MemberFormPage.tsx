@@ -31,14 +31,20 @@ function MemberForm({ member }: { member?: Member }) {
   const [status, setStatus] = useState(member ? String(member.membership_status.id) : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [local, setLocal] = useState<Record<string, string>>({});
   const [unchanged, setUnchanged] = useState(false);
-  const errors = fieldErrors(error);
+  const errors = { ...fieldErrors(error), ...local };
   const today = todayUTC();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    setBusy(true);
+    const problems: Record<string, string> = {};
+    if (birth && (birth < '1900-01-01' || birth > today)) problems.date_of_birth = 'Укажите дату рождения с 01.01.1900 по сегодня.';
+    if (since && birth && since < birth) problems.membership_date = 'Дата вступления не может быть раньше даты рождения.';
+    setLocal(problems);
     setError(null);
+    if (Object.keys(problems).length > 0) return;
+    setBusy(true);
     setUnchanged(false);
     try {
       if (!member) {
@@ -75,7 +81,12 @@ function MemberForm({ member }: { member?: Member }) {
             <TextField
               label="Дата рождения"
               type="date"
+              min="1900-01-01"
               max={today}
+              onInvalid={(event) => {
+                const message = event.currentTarget.validity.rangeOverflow ? 'Дата рождения не может быть в будущем.' : 'Укажите существующую дату рождения с 01.01.1900 по сегодня.';
+                setLocal((current) => ({ ...current, date_of_birth: message }));
+              }}
               value={birth}
               onChange={(event) => setBirth(event.target.value)}
               error={errors.date_of_birth}
@@ -85,8 +96,13 @@ function MemberForm({ member }: { member?: Member }) {
               label="В клубе с"
               type="date"
               max={today}
+              min={birth || undefined}
               value={since}
               onChange={(event) => setSince(event.target.value)}
+              onInvalid={(event) => {
+                const message = event.currentTarget.validity.rangeUnderflow ? 'Дата вступления не может быть раньше даты рождения.' : 'Укажите существующую дату вступления не позднее сегодняшней.';
+                setLocal((current) => ({ ...current, membership_date: message }));
+              }}
               error={errors.membership_date}
               hint="Дата вступления. Необязательно."
             />

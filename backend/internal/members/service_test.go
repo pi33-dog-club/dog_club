@@ -16,12 +16,17 @@ func TestCardValidationAndDatePatches(t *testing.T) {
 	if err := validateCard(&in, now); err != nil || in.FullName != "Анна" {
 		t.Fatal("valid card rejected or name not normalized")
 	}
-	for _, value := range []string{"2026-02-30", "2026-10-18", "0000-01-01", "2026-1-01"} {
+	for _, value := range []string{"1899-12-31", "2026-02-30", "2026-10-18", "0000-01-01", "2026-1-01"} {
 		in.DateOfBirth = &value
 		var validation *ValidationError
 		if !errors.As(validateCard(&in, now), &validation) {
 			t.Fatal("invalid date accepted")
 		}
+	}
+	boundary := "1900-01-01"
+	in.DateOfBirth = &boundary
+	if validateCard(&in, now) != nil {
+		t.Fatal("earliest allowed birth date rejected")
 	}
 	in.DateOfBirth = &birth
 	in.FullName = strings.Repeat("я", 151)

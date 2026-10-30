@@ -84,6 +84,8 @@ describe('training', () => {
     await userEvent.selectOptions(screen.getByLabelText('Часовой пояс'), 'Asia/Barnaul');
     await userEvent.type(screen.getByLabelText('Начало'), '2026-10-16T10:00');
     await userEvent.type(screen.getByLabelText('Окончание'), '2026-10-16T11:00');
+    expect((screen.getByRole('button', { name: 'Внести занятие' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Результат') as HTMLTextAreaElement).required).toBe(true);
     await userEvent.type(screen.getByLabelText('Результат'), 'Отработаны команды послушания');
     await waitFor(() => expect((screen.getByRole('button', { name: 'Внести занятие' }) as HTMLButtonElement).disabled).toBe(false));
     await userEvent.click(screen.getByRole('button', { name: 'Внести занятие' }));

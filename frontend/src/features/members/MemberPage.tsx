@@ -57,6 +57,7 @@ function MemberCard({ member, own, onReload }: { member: Member; own?: boolean; 
         }
       />
       <Facts>
+        <Fact label="Номер карточки" value={`№ ${member.id}`} />
         <Fact label="Членство" value={<MembershipChip status={member.membership_status} />} />
         <Fact label="В клубе с" value={formatDate(member.membership_date)} />
         <Fact label="Дата рождения" value={formatDate(member.date_of_birth)} />
@@ -150,7 +151,7 @@ function MemberHistory({ memberID }: { memberID: number }) {
             const changed = before ? fields.filter(([key]) => JSON.stringify(before[key]) !== JSON.stringify(change.after[key])).map(([, label]) => label) : [];
             return {
               id: change.id,
-              title: actions[change.action] ?? change.action,
+              title: actions[change.action] ?? 'Запись изменена',
               version: before ? `версия ${before.version} → ${change.after.version}` : `версия ${change.after.version}`,
               details: change.action === 'member_updated' && changed.length > 0 ? `Изменено: ${changed.join(', ')}` : undefined,
               meta: `${actorLabel(change.actor_role)} · ${formatDateTime(change.changed_at)}`,
